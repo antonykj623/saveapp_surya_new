@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,6 +10,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../view/home/widget/home_screen.dart';
 import 'addDiary.dart';
+import 'diaryheader.dart';
 import 'editDiary.dart';
 import 'calandar.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
@@ -36,7 +38,35 @@ class Diary extends StatefulWidget {
   State<Diary> createState() => _DiaryState();
 }
 
-class _DiaryState extends State<Diary> {
+class _DiaryState extends State<Diary> with TickerProviderStateMixin {
+  late AnimationController _slideController;
+  late AnimationController _pulseController;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _pulseAnimation;
+  bool _isRefreshing = false; // ✅ NEW
+  Future<void> _refreshData() async {
+    if (_isRefreshing) return; // ✅ prevent double tap
+
+    setState(() => _isRefreshing = true);
+
+    await _loadData(
+      subject: selectedSubject,
+      date: selectedDate,
+    );
+
+    if (mounted) {
+      setState(() => _isRefreshing = false);
+    }
+  }
+
+  final Color _primaryPurple = const Color(0xFF9D4EDD);
+  final List<Gradient> _headerGradients = [
+    const LinearGradient(
+      colors: [Color(0xFF9D4EDD), Color(0xFF4361EE)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    ),
+  ];
   DateTime selectedDate = DateTime.now();
   String? selectedSubject;
 
@@ -48,13 +78,75 @@ class _DiaryState extends State<Diary> {
   @override
   void initState() {
     super.initState();
+    datalist = [];
     _loadSubjects();
+
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   _refreshData(); // ✅ ensures subject is loaded first
+    // });
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 700),
+      vsync: this,
+    );
+
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -0.2),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _slideController, curve: Curves.elasticOut),
+    );
+
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _slideController.forward();
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+  Widget _buildIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+    required Color backgroundColor,
+    bool pulse = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedBuilder(
+        animation: pulse ? _pulseAnimation : _slideController,
+        builder: (context, child) {
+          return Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          );
+        },
+      ),
+    );
   }
 
   // ================= LOAD DATA =================
   Future<void> _loadData({String? subject, DateTime? date}) async {
-    final rawData = await DatabaseHelper().fetchAllDiaryData();
+    setState(() {
+      datalist = [];
+    });
 
+    final rawData = await DatabaseHelper().fetchAllDiaryData();
     List<DiaryModel> loaded = [];
 
     for (var entry in rawData) {
@@ -73,7 +165,9 @@ class _DiaryState extends State<Diary> {
         if (date != null) {
           if (entryDate.year != date.year ||
               entryDate.month != date.month ||
-              entryDate.day != date.day) continue;
+              entryDate.day != date.day) {
+            continue;
+          }
         }
 
         loaded.add(
@@ -88,12 +182,13 @@ class _DiaryState extends State<Diary> {
       } catch (_) {}
     }
 
+    if (!mounted) return;
+
     setState(() {
       datalist = loaded;
     });
   }
 
-  // ================= SUBJECTS =================
   Future<void> _loadSubjects() async {
     final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
 
@@ -103,9 +198,8 @@ class _DiaryState extends State<Diary> {
         return data['subject'].toString();
       }).toList();
 
-      if (subjectList.isNotEmpty) {
-        selectedSubject = subjectList.first;
-      }
+      selectedSubject = null; // ✅ NO AUTO SELECTION
+    // selectedSubject = subjectList.first;
     });
   }
 
@@ -216,6 +310,9 @@ class _DiaryState extends State<Diary> {
   // ================= UI =================
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final double scale = (size.width / 420).clamp(0.78, 1.0);
+
     return Scaffold(
 
       // ✅ FLOATING BUTTON FIXED BOTTOM
@@ -224,13 +321,15 @@ class _DiaryState extends State<Diary> {
         onPressed: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => AddDiary()),
+           MaterialPageRoute(builder: (_) => AddDiary()),
+            //MaterialPageRoute(builder: (_) => JournalHeaderOnlyPage())
           );
-
-          _loadData(
-            subject: selectedSubject,
-            date: selectedDate,
-          );
+          await _refreshData();
+        //   _loadData(
+        //     subject: selectedSubject,
+        //     date: selectedDate,
+        //   );
+        // _refreshData();
         },
         child: const Icon(Icons.add),
       ),
@@ -239,40 +338,98 @@ class _DiaryState extends State<Diary> {
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF112eea),
-              Color(0xFF121ba2),
-              Color(0xFFF111fb)
+  Color(0xFF112eea),
+         Color(0xFF121ba2),
+          Color(0xFFF111fb)
             ],
           ),
         ),
         child: Column(
           children: [
+Container(
+  child: Column(
+    children: [
+      SlideTransition(
+        position: _slideAnimation,
+        child: Container(
+          margin: EdgeInsets.all(16 * scale),
+          padding: EdgeInsets.all(16 * scale),
+          decoration: BoxDecoration(
+            gradient: _headerGradients[0],
+            borderRadius: BorderRadius.circular(20 * scale),
+            boxShadow: [
+              BoxShadow(
+                color: _primaryPurple.withOpacity(0.35),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // _buildIconButton(
+              //   icon: _isRefreshing
+              //       ? Icons.hourglass_empty
+              //       : Icons.refresh_rounded,
+              //   onTap: _isRefreshing ? () {} : _refreshData,
+              //   color: Colors.white,
+              //   backgroundColor: Colors.white24,
+              //   pulse: !_isRefreshing,
+              // ),
+              _buildIconButton(
+                icon: Icons.arrow_back_ios_new_rounded,
+                onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const SaveApp()),
+                    );},
+                color: Colors.white,
+                backgroundColor: Colors.white.withOpacity(0.2),
+              ),
 
-            /// HEADER
-            Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.black.withOpacity(0.2),
-              child: SafeArea(
-                child: Row(
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => SaveApp()),
-                        );
-                      },
-                      child: const Icon(Icons.arrow_back,
-                          color: Colors.white),
+                    Text(
+                      'Diary',
+                    textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 24 * scale,
+                        color: Colors.white,
+                      ),
                     ),
-                    const SizedBox(width: 10),
-                    const Text("Diary",
-                        style: TextStyle(color: Colors.white)),
+                //    SizedBox(height: 4 * scale),
+
                   ],
                 ),
               ),
-            ),
+              _buildIconButton(
+                icon: _isRefreshing
+                    ? Icons.hourglass_empty
+                    : Icons.refresh_rounded,
+                onTap: _isRefreshing ? () {} : _refreshData,
+                color: Colors.white,
+                backgroundColor: Colors.white24,
+                pulse: !_isRefreshing,
+              ),
+              // _buildIconButton(
+              //   icon: Icons.refresh_rounded,
+              //   onTap: () {},
+              //   color: Colors.white,
+              //   backgroundColor: Colors.white.withOpacity(0.2),
+              //   pulse: true,
+              // ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  ),
+),
+            /// HEADER
 
             const SizedBox(height: 40),
 
@@ -291,34 +448,44 @@ class _DiaryState extends State<Diary> {
             const SizedBox(height: 20),
             SizedBox(
               height: 50,
-              child: ListView.builder(
+              child: subjectList.isEmpty
+                  ? const Center(
+                child: Text(
+                  "No Subjects Found",
+                  style: TextStyle(color: Colors.white),
+                ),
+              )
+                  : ListView.builder(
                 scrollDirection: Axis.horizontal,
+                itemExtent: 120,
                 itemCount: subjectList.length,
                 itemBuilder: (context, index) {
                   final subject = subjectList[index];
                   final isSelected = selectedSubject == subject;
 
                   return GestureDetector(
-                    onTap: () {
+                    onTap: () async {
                       setState(() {
                         selectedSubject = subject;
                       });
-                    },
 
+                      await _loadData(
+                        subject: selectedSubject,
+                        date: selectedDate,
+                      );
+                    },
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 15),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      margin: const EdgeInsets.symmetric(horizontal: 5),
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected ? Colors.blue : Colors.white,
                         borderRadius: BorderRadius.circular(2),
                         border: Border.all(color: Colors.grey),
                       ),
-                      alignment: Alignment.center,
                       child: Text(
                         subject,
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -326,134 +493,9 @@ class _DiaryState extends State<Diary> {
                 },
               ),
             ),
-            // Padding(
-            //   padding: const EdgeInsets.all(10),
-            //   child: DropdownButtonFormField<String>(
-            //     value: selectedSubject,
-            //     items: subjectList
-            //         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-            //         .toList(),
-            //     onChanged: (val) => setState(() => selectedSubject = val),
-            //   ),
-            // ),
-            const SizedBox(height: 20),
-            // Container(
-            //   padding: const EdgeInsets.symmetric(horizontal: 12),
-            //   decoration: BoxDecoration(
-            //     color: Colors.white,
-            //     borderRadius: BorderRadius.circular(12),
-            //     boxShadow: [
-            //       BoxShadow(
-            //         color: Colors.black12,
-            //         blurRadius: 6,
-            //         offset: Offset(0, 2),
-            //       ),
-            //     ],
-            //   ),
-            //   child: DropdownButtonFormField<String>(
-            //     value: selectedSubject,
-            //     isExpanded: true,
-            //     dropdownColor: Colors.white,
-            //     icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-            //
-            //     items: subjectList
-            //         .map((e) => DropdownMenuItem(
-            //       value: e,
-            //       child: Text(e),
-            //     ))
-            //         .toList(),
-            //
-            //     onChanged: (val) => setState(() => selectedSubject = val),
-            //
-            //     decoration: const InputDecoration(
-            //       border: InputBorder.none,
-            //
-            //     ),
-            //   ),
-            // ),
-            // ================= SEARCH =================
-            ElevatedButton(
-              onPressed: () {
-                _loadData(
-                  subject: selectedSubject,
-                  date: selectedDate,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.pink, // ✅ pink background
-                foregroundColor: Colors.white, // ✅ text color
-              ),
-              child: const Text("Search"),
-            ),
 
-            // ================= LIST =================
-            // Expanded(
-            //   child: Container(
-            //     margin: const EdgeInsets.all(10),
-            //     decoration: BoxDecoration(
-            //       color: Colors.white,
-            //       borderRadius: BorderRadius.circular(10),
-            //     ),
-            //
-            //     child: Column(
-            //       children: [
-            //
-            //         // HEADER
-            //         Row(
-            //           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //           children: [
-            //
-            //             const Padding(
-            //               padding: EdgeInsets.all(8),
-            //               child: Text("Diary Entries"),
-            //             ),
-            //
-            //             Row(
-            //               children: [
-            //
-            //                 // DOWNLOAD BUTTON (TOP RIGHT SMALL ICON)
-            //                 IconButton(
-            //                   icon: const Icon(Icons.download, size: 20),
-            //                   onPressed: exportPDF,
-            //                 ),
-            //
-            //                 // TOGGLE BUTTON
-            //                 IconButton(
-            //                   icon: Icon(_showList
-            //                       ? Icons.keyboard_arrow_up
-            //                       : Icons.keyboard_arrow_down),
-            //                   onPressed: toggleList,
-            //                 ),
-            //               ],
-            //             ),
-            //           ],
-            //         ),
-            //
-            //         // LIST
-            //         if (_showList)
-            //           Expanded(
-            //             child: datalist.isEmpty
-            //                 ? const Center(child: Text("No Data"))
-            //                 : ListView.builder(
-            //               itemCount: datalist.length,
-            //               itemBuilder: (_, i) {
-            //                 final item = datalist[i];
-            //
-            //                 return ListTile(
-            //                   leading: const Icon(Icons.book),
-            //                   title: Text(item.subject),
-            //                   subtitle: Text(
-            //                       "${item.startdate}\n${item.remarks}"),
-            //                   onTap: () =>
-            //                       _showContentDialog(item.keyid!),
-            //                 );
-            //               },
-            //             ),
-            //           ),
-            //       ],
-            //     ),
-            //   ),
-            // ),
+            const SizedBox(height: 20),
+
             Container(
               margin: const EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -514,27 +556,40 @@ class _DiaryState extends State<Diary> {
                         : CrossFadeState.showSecond,
 
                     // 📜 LIST VIEW
-                    firstChild: SizedBox(
-                      height: 320,
-                      child: datalist.isEmpty
-                          ? const Center(child: Text("No Data"))
-                          : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        itemCount: datalist.length,
-                        itemBuilder: (_, i) {
-                          final item = datalist[i];
+                    firstChild:
+    SizedBox(
+    height: 320,
+    child: selectedSubject == null
+    ? const Center(
+    child: Text(
+    "Select a subject to view entries",
+    style: TextStyle(fontSize: 16),
+    ),
+    )
+        : datalist.isEmpty
+    ? const Center(
+    child: Text(
+    "No Data Found",
+    style: TextStyle(fontSize: 16),
+    ),
+    )
+        : ListView.builder(
+    physics: const BouncingScrollPhysics(),
+    itemCount: datalist.length,
+    itemBuilder: (_, i) {
+    final item = datalist[i];
 
-                          return ListTile(
-                            leading: const Icon(Icons.book),
-                            title: Text(item.subject),
-                            subtitle: Text(
-                              "${item.startdate}\n${item.remarks}",
-                            ),
-                            onTap: () => _showContentDialog(item.keyid!),
-                          );
-                        },
-                      ),
-                    ),
+    return ListTile(
+    leading: const Icon(Icons.book),
+    title: Text(item.subject),
+    subtitle: Text(
+    "${item.startdate}\n${item.remarks}",
+    ),
+    onTap: () => _showContentDialog(item.keyid!),
+    );
+    },
+    ),
+    ),
 
                     // 🔽 COLLAPSED VIEW
                     secondChild: const SizedBox(
@@ -551,3 +606,5 @@ class _DiaryState extends State<Diary> {
     );
   }
 }
+
+
