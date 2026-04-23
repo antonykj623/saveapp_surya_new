@@ -347,86 +347,89 @@ print("Rows are....$rows");
         child: Column(
           children: [
 Container(
-  child: Column(
-    children: [
-      SlideTransition(
-        position: _slideAnimation,
-        child: Container(
-          margin: EdgeInsets.all(16 * scale),
-          padding: EdgeInsets.all(16 * scale),
-          decoration: BoxDecoration(
-            gradient: _headerGradients[0],
-            borderRadius: BorderRadius.circular(20 * scale),
-            boxShadow: [
-              BoxShadow(
-                color: _primaryPurple.withOpacity(0.35),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // _buildIconButton(
-              //   icon: _isRefreshing
-              //       ? Icons.hourglass_empty
-              //       : Icons.refresh_rounded,
-              //   onTap: _isRefreshing ? () {} : _refreshData,
-              //   color: Colors.white,
-              //   backgroundColor: Colors.white24,
-              //   pulse: !_isRefreshing,
-              // ),
-              _buildIconButton(
-                icon: Icons.arrow_back_ios_new_rounded,
-                onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const SaveApp()),
-                    );},
-                color: Colors.white,
-                backgroundColor: Colors.white.withOpacity(0.2),
-              ),
-
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Diary',
-                    textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 24 * scale,
-                        color: Colors.white,
-                      ),
-                    ),
-                //    SizedBox(height: 4 * scale),
-
-                  ],
+  child: Padding(
+    padding: const EdgeInsets.all(0),
+    child: Column(
+      children: [
+        SlideTransition(
+          position: _slideAnimation,
+          child: Container(
+            margin: EdgeInsets.all(0 * scale),
+            padding: EdgeInsets.all(16 * scale),
+            decoration: BoxDecoration(
+              gradient: _headerGradients[0],
+              borderRadius: BorderRadius.circular(20 * scale),
+              boxShadow: [
+                BoxShadow(
+                  color: _primaryPurple.withOpacity(0.35),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
                 ),
-              ),
-              _buildIconButton(
-                icon: _isRefreshing
-                    ? Icons.hourglass_empty
-                    : Icons.refresh_rounded,
-                onTap: _isRefreshing ? () {} : _refreshData,
-                color: Colors.white,
-                backgroundColor: Colors.white24,
-                pulse: !_isRefreshing,
-              ),
-              // _buildIconButton(
-              //   icon: Icons.refresh_rounded,
-              //   onTap: () {},
-              //   color: Colors.white,
-              //   backgroundColor: Colors.white.withOpacity(0.2),
-              //   pulse: true,
-              // ),
-            ],
+              ],
+            ),
+            child: Row(
+              children: [
+                // _buildIconButton(
+                //   icon: _isRefreshing
+                //       ? Icons.hourglass_empty
+                //       : Icons.refresh_rounded,
+                //   onTap: _isRefreshing ? () {} : _refreshData,
+                //   color: Colors.white,
+                //   backgroundColor: Colors.white24,
+                //   pulse: !_isRefreshing,
+                // ),
+                _buildIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SaveApp()),
+                      );},
+                  color: Colors.white,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                ),
+
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Diary',
+                      textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 24 * scale,
+                          color: Colors.white,
+                        ),
+                      ),
+                  //    SizedBox(height: 4 * scale),
+
+                    ],
+                  ),
+                ),
+                _buildIconButton(
+                  icon: _isRefreshing
+                      ? Icons.hourglass_empty
+                      : Icons.refresh_rounded,
+                  onTap: _isRefreshing ? () {} : _refreshData,
+                  color: Colors.white,
+                  backgroundColor: Colors.white24,
+                  pulse: !_isRefreshing,
+                ),
+                // _buildIconButton(
+                //   icon: Icons.refresh_rounded,
+                //   onTap: () {},
+                //   color: Colors.white,
+                //   backgroundColor: Colors.white.withOpacity(0.2),
+                //   pulse: true,
+                // ),
+              ],
+            ),
           ),
         ),
-      ),
-    ],
+      ],
+    ),
   ),
 ),
             /// HEADER
@@ -497,7 +500,7 @@ Container(
             const SizedBox(height: 20),
 
             Container(
-              margin: const EdgeInsets.all(10),
+              margin: const EdgeInsets.all(0),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
