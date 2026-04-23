@@ -78,7 +78,7 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    datalist = [];
+   // datalist = [];
     _loadSubjects();
 
     // WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,7 +191,7 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
 
   Future<void> _loadSubjects() async {
     final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
-
+print("Rows are....$rows");
     setState(() {
       subjectList = rows.map((row) {
         final data = jsonDecode(row['data']);
@@ -199,7 +199,7 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
       }).toList();
 
       selectedSubject = null; // ✅ NO AUTO SELECTION
-    // selectedSubject = subjectList.first;
+   selectedSubject = subjectList.first;
     });
   }
 
