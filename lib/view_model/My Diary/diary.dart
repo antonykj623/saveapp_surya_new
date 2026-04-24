@@ -79,8 +79,8 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
   void initState() {
     super.initState();
    // datalist = [];
-    _loadSubjects();
-
+  //  _loadSubjects();
+    _loadSubjectsByDate(selectedDate);
     // WidgetsBinding.instance.addPostFrameCallback((_) {
     //   _refreshData(); // ✅ ensures subject is loaded first
     // });
@@ -139,7 +139,46 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
       ),
     );
   }
+  Future<void> _loadSubjectsByDate(DateTime selectedDate) async {
+    final rawData = await DatabaseHelper().fetchAllDiaryData();
 
+    final subjects = rawData.map((entry) {
+      try {
+        final decoded = jsonDecode(entry['data']);
+
+        final rawDate = decoded['startdate'];
+        if (rawDate == null) return null;
+
+        final entryDate = DateTime.parse(rawDate);
+
+        // ✅ FILTER BY MONTH + YEAR
+        if (entryDate.year != selectedDate.year ||
+            entryDate.month != selectedDate.month) {
+          return null;
+        }
+
+        String? sub = decoded['subject']?.toString().trim();
+
+        // ❌ remove invalid
+        if (sub == null || sub.isEmpty || sub.toLowerCase() == "null") {
+          return null;
+        }
+
+        return sub;
+      } catch (e) {
+        return null;
+      }
+    })
+        .whereType<String>() // remove nulls
+        .toSet() // remove duplicates
+        .toList();
+
+    setState(() {
+      subjectList = subjects;
+      selectedSubject =
+      subjectList.isNotEmpty ? subjectList.first : null;
+    });
+  }
   // ================= LOAD DATA =================
   Future<void> _loadData({String? subject, DateTime? date}) async {
     setState(() {
@@ -188,20 +227,51 @@ class _DiaryState extends State<Diary> with TickerProviderStateMixin {
       datalist = loaded;
     });
   }
-
   Future<void> _loadSubjects() async {
     final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
-print("Rows are....$rows");
-    setState(() {
-      subjectList = rows.map((row) {
-        final data = jsonDecode(row['data']);
-        return data['subject'].toString();
-      }).toList();
 
-      selectedSubject = null; // ✅ NO AUTO SELECTION
-   selectedSubject = subjectList.first;
+    final subjects = rows.map((row) {
+      try {
+        if (row['data'] == null) return null;
+
+        final data = jsonDecode(row['data']);
+
+        if (!data.containsKey('subject')) return null;
+
+        String sub = data['subject'].toString().trim();
+
+        // ❌ remove all invalid values
+        if (sub.isEmpty || sub.toLowerCase() == "null") return null;
+
+        return sub;
+      } catch (e) {
+        return null;
+      }
+    })
+        .whereType<String>() // ✅ removes null safely
+        .toSet()             // ✅ removes duplicates
+        .toList();
+
+    setState(() {
+      subjectList = subjects;
+
+      // ✅ safe selection
+      selectedSubject = subjectList.isNotEmpty ? subjectList.first : null;
     });
   }
+//   Future<void> _loadSubjects() async {
+//     final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
+// print("Rows are....$rows");
+//     setState(() {
+//       subjectList = rows.map((row) {
+//         final data = jsonDecode(row['data']);
+//         return data['subject'].toString();
+//       }).toList();
+//
+//       selectedSubject = null; // ✅ NO AUTO SELECTION
+//    selectedSubject = subjectList.first;
+//     });
+//   }
 
   // ================= PDF =================
   Future<void> exportPDF() async {
@@ -439,12 +509,25 @@ Container(
             // ================= CALENDAR =================
             Padding(
               padding: const EdgeInsets.all(0),
-              child: GemCalendar(
+              child:GemCalendar(
                 entries: datalist,
-                onDateSelected: (date) {
+                onDateSelected: (date) async {
                   setState(() => selectedDate = date);
+
+                  await _loadSubjectsByDate(date); // ✅ update subjects
+
+                  await _loadData(
+                    subject: selectedSubject,
+                    date: selectedDate,
+                  );
                 },
               ),
+              // GemCalendar(
+              //   entries: datalist,
+              //   onDateSelected: (date) {
+              //     setState(() => selectedDate = date);
+              //   },
+              // ),
             ),
 
             // ================= DROPDOWN =================

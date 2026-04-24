@@ -114,17 +114,69 @@ class _AddDiaryState extends State<AddDiary>  with TickerProviderStateMixin {
   Future<void> _loadSubjects() async {
     final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
 
-    setState(() {
-      subjectList = rows.map((row) {
+    final subjects = rows.map((row) {
+      try {
         final data = jsonDecode(row['data']);
-        return data['subject'].toString();
-      }).toList();
 
-      if (subjectList.isNotEmpty) {
-        selectedSubject = subjectList.first;
+        // ✅ safely extract subject
+        String? sub = data['subject']?.toString().trim();
+
+        // ❌ skip null / empty
+        if (sub == null || sub.isEmpty) return null;
+
+        return sub;
+      } catch (e) {
+        return null; // ❌ skip bad JSON rows
       }
+    })
+        .where((e) => e != null) // remove nulls
+        .cast<String>()
+        .toSet() // remove duplicates
+        .toList();
+
+    setState(() {
+      subjectList = subjects;
+
+      selectedSubject = subjectList.isNotEmpty
+          ? subjectList.first
+          : null;
     });
   }
+  // Future<void> _loadSubjects() async {
+  //   final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
+  //
+  //   final subjects = rows.map((row) {
+  //     final data = jsonDecode(row['data']);
+  //     return data['subject'].toString();
+  //   }).toSet().toList(); // ✅ REMOVE DUPLICATES
+  //
+  //   setState(() {
+  //     subjectList = subjects;
+  //
+  //     // ✅ Ensure selectedSubject is valid
+  //     if (subjectList.isNotEmpty) {
+  //       if (!subjectList.contains(selectedSubject)) {
+  //         selectedSubject = subjectList.first;
+  //       }
+  //     } else {
+  //       selectedSubject = null;
+  //     }
+  //   });
+  // }
+  // Future<void> _loadSubjects() async {
+  //   final rows = await DatabaseHelper().getAllData("DIARYSUBJECT_table");
+  //
+  //   setState(() {
+  //     subjectList = rows.map((row) {
+  //       final data = jsonDecode(row['data']);
+  //       return data['subject'].toString();
+  //     }).toList();
+  //
+  //     if (subjectList.isNotEmpty) {
+  //       selectedSubject = subjectList.first;
+  //     }
+  //   });
+  // }
 
   /// ➕ ADD SUBJECT
   void showmyDialog() {
@@ -324,25 +376,50 @@ class _AddDiaryState extends State<AddDiary>  with TickerProviderStateMixin {
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: selectedSubject,
-                                    items: subjectList
-                                        .map((e) => DropdownMenuItem(
-                                      value: e,
-                                      child: Text(e),
-                                    ))
-                                        .toList(),
-                                    onChanged: (v) =>
-                                        setState(() => selectedSubject = v),
+                                  child:
+                                  DropdownButtonFormField<String>(
+                                    value: subjectList.contains(selectedSubject)
+                                        ? selectedSubject
+                                        : null, // ✅ SAFE VALUE
+
+                                    items: subjectList.map((e) {
+                                      return DropdownMenuItem(
+                                        value: e,
+                                        child: Text(e),
+                                      );
+                                    }).toList(),
+
+                                    onChanged: (v) {
+                                      setState(() => selectedSubject = v);
+                                    },
+
                                     decoration: InputDecoration(
                                       filled: true,
                                       fillColor: Colors.white,
                                       border: OutlineInputBorder(
-                                        borderRadius:
-                                        BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     ),
                                   ),
+                                  // DropdownButtonFormField<String>(
+                                  //   value: selectedSubject,
+                                  //   items: subjectList
+                                  //       .map((e) => DropdownMenuItem(
+                                  //     value: e,
+                                  //     child: Text(e),
+                                  //   ))
+                                  //       .toList(),
+                                  //   onChanged: (v) =>
+                                  //       setState(() => selectedSubject = v),
+                                  //   decoration: InputDecoration(
+                                  //     filled: true,
+                                  //     fillColor: Colors.white,
+                                  //     border: OutlineInputBorder(
+                                  //       borderRadius:
+                                  //       BorderRadius.circular(8),
+                                  //     ),
+                                  //   ),
+                                  // ),
                                 ),
                                 const SizedBox(width: 10),
                                 FloatingActionButton(
