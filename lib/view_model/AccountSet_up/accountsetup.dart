@@ -11,6 +11,7 @@ import '../../app/Modules/accounts/global.dart' as global;
 import 'Add_Acount.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+import 'editaccountdetails.dart';
 
 queryall() async {
   var allrows = await DatabaseHelper().queryallacc();
@@ -62,7 +63,7 @@ class _Home_ScreenState extends State<Accountsetup> {
         title: Text(' Account Setup', style: TextStyle(color: Colors.white)),
       ),
 
-      body: 
+      body:
       Container(
         child: Column(
           children: [
@@ -90,7 +91,7 @@ class _Home_ScreenState extends State<Accountsetup> {
 
             Expanded(
               child: FutureBuilder<List<Map<String, dynamic>>>(
-                future: DatabaseHelper().getAllData('TABLE_ACCOUNTSETTINGS'),
+                future: DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS'),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(child: CircularProgressIndicator());
@@ -174,7 +175,7 @@ class _Home_ScreenState extends State<Accountsetup> {
                                     Text('AccountType      '),
                                     Text('   :   '),
 
-                                    Text("${dat['type'] ?? "0"}"),
+                                    Text("${dat['Type'] ?? "0"}"),
                                   ],
                                 ),
                               ),
@@ -198,36 +199,40 @@ class _Home_ScreenState extends State<Accountsetup> {
                                       ),
                                       child: TextButton(
                                         onPressed: () {
+                                          final ob = dat['OpeningBalance'].toString();
+                                          print("ob is $ob");
                                           Map<String, dynamic>
                                           accountsetupData = {
                                             // "id":items[0],
-                                            "Accountname":
+                                            "accountname":
                                                 dat['Accountname'].toString(),
 
-                                            "catogory":
-                                                dat['Accounttype'].toString(),
-                                            "Amount": dat['Amount'].toString(),
-                                            "Type": dat['Type'].toString(),
+                                            "category":dat['Accounttype'].toString(),
+                                            "amount": ob,
+
+                                            "type": dat['Type'].toString(),
                                             "year": dat['year'].toString(),
                                             "keyid": item['keyid'].toString(),
                                           };
+
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder:
-                                                  (context) => Editaccount(
+                                                  (context) => Editaccount1(
                                                     keyid:
                                                         item['keyid']
                                                             .toString(),
-                                                    year: '${currentYear}',
+                                                   // year: accountsetupData['year'] ,
+                                                    year: accountsetupData['year'],
                                                     accname:
-                                                        accountsetupData['Accountname'],
+                                                        accountsetupData['accountname'],
                                                     cat:
-                                                        accountsetupData['catogory'],
-                                                    obalance:
-                                                        accountsetupData['Amount'],
+                                                        accountsetupData['category'],
+                                                  obalance: accountsetupData['amount'],
+
                                                     actype:
-                                                        accountsetupData['Type'],
+                                                        accountsetupData['type'],
                                                   ),
                                             ),
                                           );

@@ -235,7 +235,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
 
                             Map<String, dynamic> accountsetupData = {
                               "Accountname": accname,
-                              "Accounttype": dropdownvalu1,
+                              "Accounttype": catogory,
                               "OpeningBalance": openbalance,
                               "Type": type,
                             };
@@ -247,7 +247,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                             );
 
                             print('account name is ...$accname');
-
+                            print('opening balance isssss ...$openbalance');
                             // Show success message
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -260,7 +260,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                               );
 
                               // Clear form fields
-                              accountname.clear();
+                             //// accountname.clear();
                               openingbalance.clear();
                               setState(() {
                                 dropdownvalu1 = 'Asset Account';
