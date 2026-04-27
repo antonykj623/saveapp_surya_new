@@ -4,12 +4,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../app/Modules/accounts/addaccount.dart';
-import '../../app/Modules/accounts/editaccountdetails.dart';
+
 import '../../app/Modules/accounts/global.dart' as global;
 
 import 'Add_Acount.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'editaccountdetails.dart';
 
@@ -85,8 +84,7 @@ class _Home_ScreenState extends State<Accountsetup> {
                   name = value;
                 });
               },
-              // calls the _searchChanged on textChange
-              //   onChanged: (search) =>
+
             ),
 
             Expanded(

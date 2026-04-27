@@ -264,43 +264,7 @@ class _SlidebleListState3 extends State<Editaccount1> {
               ),
 
               const SizedBox(height: 10),
-              // TextFormField(
-              //   enabled: true,
-              //   controller: openingbalance,
-              //   // obscureText: true,
-              //   decoration: InputDecoration(
-              //     hintStyle: TextStyle(
-              //       color: const Color.fromARGB(255, 0, 0, 0),
-              //     ),
-              //
-              //     //   hintStyle: (TextStyle(color: Colors.white)),
-              //     enabledBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(
-              //         color: const Color.fromARGB(255, 0, 0, 0),
-              //         width: .5,
-              //       ),
-              //     ),
-              //     focusedBorder: OutlineInputBorder(
-              //       borderSide: BorderSide(
-              //         color: const Color.fromARGB(255, 254, 255, 255),
-              //         width: .5,
-              //       ),
-              //     ),
-              //     hintText: "Opening Balance",
-              //
-              //     fillColor: Colors.transparent,
-              //     filled: true,
-              //
-              //     //  prefixIcon: const Icon(Icons.password,color:Colors.white)
-              //   ),
-              //   validator: (value) {
-              //     if (value == "") {
-              //       return 'Opening Balance';
-              //     }
-              //     return null;
-              //   },
-              //   //    obscureText: true,
-              // ),
+
               TextFormField(
                 enabled: true,
                 controller: openingbalance,

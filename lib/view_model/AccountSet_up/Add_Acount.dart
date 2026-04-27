@@ -246,8 +246,7 @@ class _SlidebleListState1 extends State<Addaccountsdet> {
                               jsonEncode(accountsetupData),
                             );
 
-                            print('account name is ...$accname');
-                            print('opening balance isssss ...$openbalance');
+
                             // Show success message
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
