@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:new_project_2025/model/receipt.dart';
 import 'package:new_project_2025/view/home/dream_page/model_dream_page/model_dream.dart';
 import 'package:new_project_2025/view/home/widget/payment_page/payment_class/payment_class.dart';
@@ -519,13 +520,13 @@ print("Processed rows are $processedRow");
     Map<String, dynamic> accountData = {
       "Accountname": accountname,
       "Accounttype": catogory,
-      "Amount": openingbalance,
+      "OpeningBalance": openingbalance,
       "Type": accountype,
       "year": year,
     };
 
     Map<String, dynamic> datatoupdata = {
-      "keyid": keyid,
+   //   "keyid": keyid,
       "data": jsonEncode(accountData),
     };
 
@@ -534,8 +535,10 @@ print("Processed rows are $processedRow");
       datatoupdata,
       where: 'keyid = ?',
       whereArgs: [keyid],
-    );
 
+    );
+    print("Row exists: $res");
+print("Response updated is $res");
     if (res == 1) {
       print("Res is: $res.");
       print("updatedRes is: $res.");
@@ -671,8 +674,16 @@ print("Processed rows are $processedRow");
   }
   Future<List<Map<String, dynamic>>> getAllData(String tableName) async {
     final db = await database;
-    return await db.query(tableName);
+    return await db.query('DIARYSUBJECT_table');
   }
+   // Future<List<Map<String, dynamic>>> getAllData(String tableName) async {
+   //   final db = await database;
+   //
+   //   return await db.query(
+   //     'DIARYSUBJECT_table',
+   //     where: 'data IS NOT NULL',
+   //   );
+   // }
   Future<List<Map<String, dynamic>>> fetchAllpassData() async {
     Database db = await database;
     var res = await db.query('TABLE_PASSWORD');
@@ -702,7 +713,7 @@ print("Processed rows are $processedRow");
   }
   Future<List<Map<String, dynamic>>> getAllData1(String tableName) async {
     final db = await database;
-    return await db.query(tableName);
+    return await db.query('TABLE_ACCOUNTSETTINGS');
   }
 
 
