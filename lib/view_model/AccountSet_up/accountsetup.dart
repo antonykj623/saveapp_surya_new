@@ -1,5 +1,9 @@
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
+
 import 'Add_Acount.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 import 'editaccountdetails.dart';
@@ -12,18 +16,30 @@ class Accountsetup extends StatefulWidget {
 }
 
 class _AccountsetupState extends State<Accountsetup> {
-  int currentYear = DateTime.now().year;
-
   late Future<List<Map<String, dynamic>>> _accountsFuture;
 
   TextEditingController _searchController = TextEditingController();
-
   String names = "";
+
+  // 🎤 Speech
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+  double _soundLevel = 0.0;
+
+  // 🔊 TTS
+  final FlutterTts flutterTts = FlutterTts();
 
   @override
   void initState() {
     super.initState();
+    _speech = stt.SpeechToText();
+    _initTTS();
     _loadData();
+  }
+
+  void _initTTS() async {
+    await flutterTts.setLanguage("en-IN");
+    await flutterTts.setPitch(1.0);
   }
 
   void _loadData() {
@@ -31,74 +47,149 @@ class _AccountsetupState extends State<Accountsetup> {
         DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS');
   }
 
-  // 🔍 SEARCH FILTER
+  Future<void> _speak(String text) async {
+    await flutterTts.stop();
+    await flutterTts.speak(text);
+  }
+
+  // 🎤 START
+  void _startListening() async {
+    bool available = await _speech.initialize();
+
+    if (available) {
+      setState(() {
+        names = "";
+        _searchController.clear();
+        _isListening = true;
+      });
+
+      _speech.listen(
+        listenFor: Duration(seconds: 15),
+        pauseFor: Duration(seconds: 3),
+
+        onResult: (result) {
+          final voiceText = result.recognizedWords;
+
+          // 🔥 IMPORTANT FIX (single source of truth)
+          setState(() {
+            names = voiceText.toLowerCase().trim();
+            _searchController.text = voiceText;
+          });
+
+          // Debug (remove later)
+          print("VOICE INPUT: $voiceText");
+
+          if (result.finalResult && voiceText.isNotEmpty) {
+            _speak("Searching for $voiceText");
+          }
+        },
+
+        onSoundLevelChange: (level) {
+          setState(() => _soundLevel = level);
+        },
+      );
+    }
+  }
+
+  // 🛑 STOP
+  void _stopListening() {
+    _speech.stop();
+    setState(() => _isListening = false);
+  }
+
+  // 🔍 FILTER (IMPROVED)
   List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> data) {
-    if (names.isEmpty) return data.reversed.toList();
+    if (names.trim().isEmpty) return data.reversed.toList();
+
+    final query = names.toLowerCase().trim();
 
     return data.reversed.where((e) {
       final dat = jsonDecode(e["data"]);
-      final acc = dat['Accountname'].toString().toLowerCase();
-      return acc.contains(names.toLowerCase());
+      final acc =
+      (dat['Accountname'] ?? "").toString().toLowerCase().trim();
+
+      // 🔥 flexible match
+      return acc.contains(query) ||
+          query.split(" ").any((word) => acc.contains(word));
     }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-
       body: Column(
         children: [
 
-          // 🔵 HEADER (SAME DESIGN)
-
-
-          Padding(
-            padding: const EdgeInsets.all(0.0),
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.teal, Colors.blue],
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(25),
-                  bottomRight: Radius.circular(25),
-                ),
+          // 🔵 HEADER
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.only(top: 50, left: 16, bottom: 20),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.teal, Colors.blue],
               ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  SizedBox(width: 5),
-                  Text(
-                    "Account Setup",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(25),
+                bottomRight: Radius.circular(25),
               ),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                Text(
+                  "Account Setup",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // 🔍 SEARCH BOX
+          // 🔍 SEARCH
           Padding(
             padding: const EdgeInsets.all(10),
             child: TextField(
               controller: _searchController,
               onChanged: (v) {
                 setState(() {
-                  names = v;
+                  names = v.toLowerCase().trim();
                 });
               },
               decoration: InputDecoration(
                 prefixIcon: Icon(Icons.search),
-                hintText: "Search by Account Name",
+
+                // 🎤 MIC
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isListening ? Icons.mic : Icons.mic_none,
+                    color: _isListening ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: () {
+                    if (_isListening) {
+                      _stopListening();
+
+                      setState(() {
+                        names = "";
+                        _searchController.clear();
+                      });
+
+                      Future.delayed(Duration(milliseconds: 300), () {
+                        _startListening();
+                      });
+                    } else {
+                      _startListening();
+                    }
+                  },
+                ),
+
+                hintText:
+                _isListening ? "Listening..." : "Search by Account Name",
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
@@ -107,6 +198,19 @@ class _AccountsetupState extends State<Accountsetup> {
               ),
             ),
           ),
+
+          // 🎤 WAVE
+          AnimatedContainer(
+            duration: Duration(milliseconds: 100),
+            height: 10 + (_soundLevel * 2),
+            width: _isListening ? 60 + (_soundLevel * 5) : 20,
+            decoration: BoxDecoration(
+              color: _isListening ? Colors.red : Colors.grey,
+              borderRadius: BorderRadius.circular(20),
+            ),
+          ),
+
+          SizedBox(height: 5),
 
           // 📋 LIST
           Expanded(
@@ -123,566 +227,429 @@ class _AccountsetupState extends State<Accountsetup> {
                 }
 
                 final items = _filter(snapshot.data!);
+
                 return ListView.builder(
                   itemCount: items.length,
                   itemBuilder: (context, index) {
+
                     final item = items[index];
                     final dat = jsonDecode(item["data"]);
                     final keyid = item['keyid'];
 
-                    return Dismissible(
-                      key: Key(keyid.toString()),
+                    return Card(
+                      margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      child: ListTile(
+                        title: Text(
+                          dat['Accountname'],
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
 
-                      direction: DismissDirection.endToStart,
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Category: ${dat['Accounttype']}"),
+                            Text("Balance: ₹${dat['OpeningBalance']}"),
+                            Text("Type: ${dat['Type']}"),
+                          ],
+                        ),
 
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: EdgeInsets.only(right: 20),
-                        color: Colors.red,
-                        child: Icon(Icons.delete, color: Colors.white),
-                      ),
+                        onTap: () {
+                          _speak(
+                            "${dat['Accountname']} balance ${dat['OpeningBalance']}",
+                          );
+                        },
 
-                      confirmDismiss: (direction) async {
-                        return await showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text("Delete Account?"),
-                            content: Text("This action cannot be undone."),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: Text("Cancel"),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: Text(
-                                  "Delete",
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
 
-                      onDismissed: (direction) async {
-                        await DatabaseHelper().deleteData(
-                          "TABLE_ACCOUNTSETTINGS",
-                          keyid.toString(),
-                        );
-
-                        setState(() {
-                          _loadData();
-                        });
-
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text("${dat['Accountname']} deleted"),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      },
-
-                      child:
-                      Card(
-                        elevation: 4,
-                        margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-
-                              Text("Account Name: ${dat['Accountname']}"),
-                              Text("Category: ${dat['Accounttype']}"),
-                              Text("Opening Balance: ${dat['OpeningBalance']}"),
-                              Text("Type: ${dat['Type']}"),
-                              Text("Year: $currentYear"),
-
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton(
-                                  onPressed: () async {
-                                    final res = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => Editaccount1(
-                                          keyid: keyid.toString(),
-                                          year: dat['year'] ?? "",
-                                          accname: dat['Accountname'],
-                                          cat: dat['Accounttype'],
-                                          obalance: dat['OpeningBalance'],
-                                          actype: dat['Type'],
-                                        ),
-                                      ),
-                                    );
-
-                                    if (res == true) {
-                                      setState(() {
-                                        _loadData();
-                                      });
-                                    }
-                                  },
-                                  child: Text(
-                                    "Edit",
-                                    style: TextStyle(color: Colors.green),
+                            IconButton(
+                              icon: Icon(Icons.edit, color: Colors.green),
+                              onPressed: () async {
+                                final res = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => Editaccount1(
+                                      keyid: keyid.toString(),
+                                      year: dat['year'] ?? "",
+                                      accname: dat['Accountname'],
+                                      cat: dat['Accounttype'],
+                                      obalance: dat['OpeningBalance'],
+                                      actype: dat['Type'],
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
+                                );
+
+                                if (res == true) {
+                                  setState(() => _loadData());
+                                }
+                              },
+                            ),
+
+                            IconButton(
+                              icon: Icon(Icons.delete, color: Colors.red),
+                              onPressed: () async {
+                                await DatabaseHelper().deleteData(
+                                  "TABLE_ACCOUNTSETTINGS",
+                                  keyid.toString(),
+                                );
+
+                                _speak("${dat['Accountname']} deleted");
+
+                                setState(() => _loadData());
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     );
                   },
                 );
-                // return ListView.builder(
-                //   itemCount: items.length,
-                //   itemBuilder: (context, index) {
-                //
-                //     final item = items[index];
-                //     final dat = jsonDecode(item["data"]);
-                //
-                //     return Card(
-                //       elevation: 4,
-                //       margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                //       child: Padding(
-                //         padding: const EdgeInsets.all(12),
-                //         child: Column(
-                //           crossAxisAlignment: CrossAxisAlignment.start,
-                //           children: [
-                //
-                //             Text("Account Name: ${dat['Accountname']}"),
-                //             Text("Category: ${dat['Accounttype']}"),
-                //             Text("Opening Balance: ${dat['OpeningBalance']}"),
-                //             Text("Type: ${dat['Type']}"),
-                //             Text("Year: $currentYear"),
-                //
-                //             Align(
-                //               alignment: Alignment.centerRight,
-                //               child: TextButton(
-                //                 onPressed: () async {
-                //
-                //                   final res = await Navigator.push(
-                //                     context,
-                //                     MaterialPageRoute(
-                //                       builder: (context) => Editaccount1(
-                //                         keyid: item['keyid'].toString(),
-                //                         year: dat['year'] ?? "",
-                //                         accname: dat['Accountname'],
-                //                         cat: dat['Accounttype'],
-                //                         obalance: dat['OpeningBalance'],
-                //                         actype: dat['Type'],
-                //                       ),
-                //                     ),
-                //                   );
-                //
-                //                   if (res == true) {
-                //                     setState(() {
-                //                       _loadData();
-                //                     });
-                //                   }
-                //                 },
-                //                 child: Text(
-                //                   "Edit",
-                //                   style: TextStyle(color: Colors.green),
-                //                 ),
-                //               ),
-                //             )
-                //           ],
-                //         ),
-                //       ),
-                //     );
-                //   },
-                // );
               },
             ),
           ),
         ],
       ),
 
-      // ➕ FLOAT BUTTON
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.red,
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-
           final result = await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => Addaccountsdet()),
           );
 
           if (result == true) {
-            setState(() {
-              _loadData();
-            });
+            setState(() => _loadData());
           }
         },
-        child: Icon(Icons.add),
+        icon: Icon(Icons.add),
+        label: Text("Add"),
       ),
     );
   }
 }
-
 // import 'dart:convert';
-//
-//
 // import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
-//
-//
-// import '../../app/Modules/accounts/global.dart' as global;
-//
 // import 'Add_Acount.dart';
-//
 // import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 // import 'editaccountdetails.dart';
-//
-// queryall() async {
-//   var allrows = await DatabaseHelper().queryallacc();
-//
-//   allrows.forEach((row) {
-//     List valuesList = row.values.toList();
-//     var a = valuesList[1];
-//     print(a);
-//   });
-// }
-//
-// var id;
-//
-// List<String> _filteredItems = [];
-// TextEditingController _searchController = TextEditingController();
 //
 // class Accountsetup extends StatefulWidget {
 //   const Accountsetup({super.key});
 //
 //   @override
-//   State<Accountsetup> createState() => _Home_ScreenState();
+//   State<Accountsetup> createState() => _AccountsetupState();
 // }
 //
-// List<Map<String, dynamic>> _foundUsers = [];
-//
-// class _Home_ScreenState extends State<Accountsetup> {
+// class _AccountsetupState extends State<Accountsetup> {
 //   int currentYear = DateTime.now().year;
+//
 //   late Future<List<Map<String, dynamic>>> _accountsFuture;
-//   void _loadData() {
-//     _accountsFuture =
-//         DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS');
-//   }
+//
+//   TextEditingController _searchController = TextEditingController();
+//
+//   String names = "";
+//
 //   @override
-//   initState() {
+//   void initState() {
 //     super.initState();
 //     _loadData();
 //   }
 //
-//   String name = "";
+//   void _loadData() {
+//     _accountsFuture =
+//         DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS');
+//   }
+//
+//   // 🔍 SEARCH FILTER
+//   List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> data) {
+//     if (names.isEmpty) return data.reversed.toList();
+//
+//     return data.reversed.where((e) {
+//       final dat = jsonDecode(e["data"]);
+//       final acc = dat['Accountname'].toString().toLowerCase();
+//       return acc.contains(names.toLowerCase());
+//     }).toList();
+//   }
 //
 //   @override
 //   Widget build(BuildContext context) {
 //     return Scaffold(
 //
-//
-//       // appBar: AppBar(
-//       //   backgroundColor: Colors.teal,
-//       //
-//       //   leading: IconButton(
-//       //     onPressed: () {
-//       //       Navigator.pop(context);
-//       //     },
-//       //     icon: Icon(Icons.arrow_back, color: Colors.white),
-//       //   ),
-//       //
-//       //   title: Text(' Account Setup', style: TextStyle(color: Colors.white)),
-//       // ),
-//
-//       body:
-//       Column(
-//           children: [
-//
-//       // 🔵 CUSTOM HEADER (REPLACES APPBAR)
-//       SafeArea(
-//       child: Container(
-//       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-//       color: Colors.blueGrey,
-//       child: Row(
+//       body: Column(
 //         children: [
 //
-//           // 🔙 Back Button
-//           IconButton(
-//             onPressed: () {
-//               Navigator.pop(context);
-//             },
-//             icon: Icon(Icons.arrow_back, color: Colors.white),
-//           ),
-//
-//           SizedBox(width: 10),
+//           // 🔵 HEADER (SAME DESIGN)
 //
 //
-//           Text(
-//             "Account Setup",
-//             style: TextStyle(
-//               color: Colors.white,
-//               fontSize: 22,
-//               fontWeight: FontWeight.bold,
-//             ),
-//           ),
-//         ],
-//       ),
-//     ),
-//     ),
-// Expanded(child:
-//       Container(
-//         child: Column(
-//           children: [
-//             TextField(
-//               controller: _searchController,
-//               decoration: InputDecoration(
-//                 prefixIcon: IconButton(
-//                   onPressed: () {},
-//                   icon: Icon(Icons.search),
+//           Padding(
+//             padding: const EdgeInsets.all(0.0),
+//             child: Container(
+//               width: double.infinity,
+//               padding: EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
+//               decoration: BoxDecoration(
+//                 gradient: LinearGradient(
+//                   colors: [Colors.teal, Colors.blue],
 //                 ),
-//                 hintText: 'Search by Account Name',
-//                 border: OutlineInputBorder(
-//                   borderRadius: BorderRadius.circular(0.0),
-//                   borderSide: BorderSide(color: Colors.black, width: 2.0),
+//                 borderRadius: BorderRadius.only(
+//                   bottomLeft: Radius.circular(25),
+//                   bottomRight: Radius.circular(25),
 //                 ),
 //               ),
-//               onChanged: (value) {
+//               child: Row(
+//                 children: [
+//                   IconButton(
+//                     icon: Icon(Icons.arrow_back, color: Colors.white),
+//                     onPressed: () => Navigator.pop(context),
+//                   ),
+//                   SizedBox(width: 5),
+//                   Text(
+//                     "Account Setup",
+//                     style: TextStyle(
+//                       color: Colors.white,
+//                       fontSize: 22,
+//                       fontWeight: FontWeight.bold,
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//
+//           // 🔍 SEARCH BOX
+//           Padding(
+//             padding: const EdgeInsets.all(10),
+//             child: TextField(
+//               controller: _searchController,
+//               onChanged: (v) {
 //                 setState(() {
-//                   name = value;
+//                   names = v;
 //                 });
 //               },
-//
+//               decoration: InputDecoration(
+//                 prefixIcon: Icon(Icons.search),
+//                 hintText: "Search by Account Name",
+//                 filled: true,
+//                 fillColor: Colors.grey.shade100,
+//                 border: OutlineInputBorder(
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//               ),
 //             ),
+//           ),
 //
-//             Expanded(
-//               child: FutureBuilder<List<Map<String, dynamic>>>(
-//                 future:  _accountsFuture,
-//                 //DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS'),
-//                 builder: (context, snapshot) {
-//                   if (snapshot.connectionState == ConnectionState.waiting) {
-//                     return Center(child: CircularProgressIndicator());
-//                   } else if (snapshot.hasError) {
-//                     return Center(child: Text('Error: ${snapshot.error}'));
-//                   }
+//           // 📋 LIST
+//           Expanded(
+//             child: FutureBuilder<List<Map<String, dynamic>>>(
+//               future: _accountsFuture,
+//               builder: (context, snapshot) {
 //
-//                   List<Map<String, dynamic>> items = [];
+//                 if (snapshot.connectionState == ConnectionState.waiting) {
+//                   return Center(child: CircularProgressIndicator());
+//                 }
 //
-//                   if (name.isEmpty) {
-//                     items = snapshot.data ?? [];
-//                   } else {
-//                     final items1 = snapshot.data ?? [];
-//                     items = snapshot.data!.reversed
-//                         .where((e) => jsonDecode(e["data"])["Accountname"]
-//                         .toString()
-//                         .toLowerCase()
-//                         .contains(name.toLowerCase()))
-//                         .toList();
-//                     // items = items1.reversed.toList();
-//                     // for (var i in items1) {
-//                     //   Map<String, dynamic> dat = jsonDecode(i["data"]);
-//                     //   if (dat['Accountname'].toString().contains(name)) {
-//                     //     items.add(i);
-//                     //   }
-//                     // }
-//                   }
+//                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
+//                   return Center(child: Text("No Data Found"));
+//                 }
 //
-//                   return ListView.builder(
-//                     itemCount: items.length,
-//                     itemBuilder: (context, index) {
-//                       final item = items[index];
+//                 final items = _filter(snapshot.data!);
+//                 return ListView.builder(
+//                   itemCount: items.length,
+//                   itemBuilder: (context, index) {
+//                     final item = items[index];
+//                     final dat = jsonDecode(item["data"]);
+//                     final keyid = item['keyid'];
 //
-//                       Map<String, dynamic> dat = jsonDecode(item["data"]);
+//                     return Dismissible(
+//                       key: Key(keyid.toString()),
 //
-//                       // Map<String,dynamic>id=jsonDecode(item['keyid'])  ;
+//                       direction: DismissDirection.endToStart,
 //
-//                       print('$dat');
-//                       return Card(
-//                         elevation: 50,
-//                         child: Container(
+//                       background: Container(
+//                         alignment: Alignment.centerRight,
+//                         padding: EdgeInsets.only(right: 20),
+//                         color: Colors.red,
+//                         child: Icon(Icons.delete, color: Colors.white),
+//                       ),
+//
+//                       confirmDismiss: (direction) async {
+//                         return await showDialog(
+//                           context: context,
+//                           builder: (context) => AlertDialog(
+//                             title: Text("Delete Account?"),
+//                             content: Text("This action cannot be undone."),
+//                             actions: [
+//                               TextButton(
+//                                 onPressed: () => Navigator.pop(context, false),
+//                                 child: Text("Cancel"),
+//                               ),
+//                               TextButton(
+//                                 onPressed: () => Navigator.pop(context, true),
+//                                 child: Text(
+//                                   "Delete",
+//                                   style: TextStyle(color: Colors.red),
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         );
+//                       },
+//
+//                       onDismissed: (direction) async {
+//                         await DatabaseHelper().deleteData(
+//                           "TABLE_ACCOUNTSETTINGS",
+//                           keyid.toString(),
+//                         );
+//
+//                         setState(() {
+//                           _loadData();
+//                         });
+//
+//                         ScaffoldMessenger.of(context).showSnackBar(
+//                           SnackBar(
+//                             content: Text("${dat['Accountname']} deleted"),
+//                             backgroundColor: Colors.red,
+//                           ),
+//                         );
+//                       },
+//
+//                       child:
+//                       Card(
+//                         elevation: 4,
+//                         margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+//                         child: Padding(
+//                           padding: const EdgeInsets.all(12),
 //                           child: Column(
-//                             children: <Widget>[
-//                               Padding(
-//                                 padding: const EdgeInsets.only(left: 15.0),
-//                                 child: Row(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   children: [
-//                                      Text('AccountName    '),
-//                                      Text('  :  '),
-//                                     Text("${dat['Accountname'].toString()}"),
-//                                   ],
-//                                 ),
-//                               ),
-//                               Padding(
-//                                 padding: const EdgeInsets.only(left: 15.0),
-//                                 child: Row(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   children: [
-//                                     Text('Catogory '),
-//                                     Text('              :   '),
+//                             crossAxisAlignment: CrossAxisAlignment.start,
+//                             children: [
 //
-//                                     Text("${dat['Accounttype'] ?? "0"}"),
-//                                   ],
-//                                 ),
-//                               ),
-//                               Padding(
-//                                 padding: const EdgeInsets.only(left: 15.0),
-//                                 child: Row(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   children: [
-//                                     Text(
-//                                       'opening'
-//                                       'balance ',
-//                                     ),
-//                                     Text('   :   '),
+//                               Text("Account Name: ${dat['Accountname']}"),
+//                               Text("Category: ${dat['Accounttype']}"),
+//                               Text("Opening Balance: ${dat['OpeningBalance']}"),
+//                               Text("Type: ${dat['Type']}"),
+//                               Text("Year: $currentYear"),
 //
-//                                     Text("${dat['OpeningBalance'] ?? "0"}"),
-//                                   ],
-//                                 ),
-//                               ),
-//                               Padding(
-//                                 padding: const EdgeInsets.only(left: 15.0),
-//                                 child: Row(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   children: [
-//                                     Text('AccountType      '),
-//                                     Text('   :   '),
-//
-//                                     Text("${dat['Type'] ?? "0"}"),
-//                                   ],
-//                                 ),
-//                               ),
-//                               Padding(
-//                                 padding: const EdgeInsets.only(left: 15.0),
-//                                 child: Row(
-//                                   mainAxisAlignment: MainAxisAlignment.start,
-//                                   children: [
-//                                     Text('Year             '),
-//                                     Text('           :   '),
-//                                     Text('$currentYear'),
-//                                   ],
-//                                 ),
-//                               ),
-//                               Container(
-//                                 child: Row(
-//                                   children: [
-//                                     Padding(
-//                                       padding: const EdgeInsets.only(
-//                                         left: 280.0,
-//                                       ),
-//                                       child: TextButton(
-//                                         onPressed: () async{
-//                                           final ob = dat['OpeningBalance'].toString();
-//                                           print("ob is $ob");
-//                                           Map<String, dynamic>
-//                                           accountsetupData = {
-//                                             // "id":items[0],
-//                                             "accountname":
-//                                                 dat['Accountname'].toString(),
-//
-//                                             "category":dat['Accounttype'].toString(),
-//                                             "amount": ob,
-//
-//                                             "type": dat['Type'].toString(),
-//                                             "year": dat['year'].toString(),
-//                                             "keyid": item['keyid'].toString(),
-//                                           };
-//
-//                                         final res =
-//                                          await Navigator.push(
-//                                             context,
-//                                             MaterialPageRoute(
-//                                               builder:
-//                                                   (context) => Editaccount1(
-//                                                     keyid:
-//                                                         item['keyid']
-//                                                             .toString(),
-//                                                    // year: accountsetupData['year'] ,
-//                                                     year: accountsetupData['year'],
-//                                                     accname:
-//                                                         accountsetupData['accountname'],
-//                                                     cat:
-//                                                         accountsetupData['category'],
-//                                                   obalance: accountsetupData['amount'],
-//
-//                                                     actype:
-//                                                         accountsetupData['type'],
-//                                                   ),
-//                                             ),
-//
-//                                           );
-//                                           if (res == true) {
-//                                             setState(() {
-//                                               _loadData();
-//                                             });
-//                                           }
-//                                         },
-//                                         child: Text(
-//                                           'Edit',
-//                                           style: TextStyle(
-//                                             color: Colors.green,
-//                                             fontWeight: FontWeight.bold,
-//                                           ),
+//                               Align(
+//                                 alignment: Alignment.centerRight,
+//                                 child: TextButton(
+//                                   onPressed: () async {
+//                                     final res = await Navigator.push(
+//                                       context,
+//                                       MaterialPageRoute(
+//                                         builder: (context) => Editaccount1(
+//                                           keyid: keyid.toString(),
+//                                           year: dat['year'] ?? "",
+//                                           accname: dat['Accountname'],
+//                                           cat: dat['Accounttype'],
+//                                           obalance: dat['OpeningBalance'],
+//                                           actype: dat['Type'],
 //                                         ),
 //                                       ),
-//                                     ),
-//                                   ],
+//                                     );
+//
+//                                     if (res == true) {
+//                                       setState(() {
+//                                         _loadData();
+//                                       });
+//                                     }
+//                                   },
+//                                   child: Text(
+//                                     "Edit",
+//                                     style: TextStyle(color: Colors.green),
+//                                   ),
 //                                 ),
 //                               ),
 //                             ],
 //                           ),
 //                         ),
-//                       );
-//                     },
-//                   );
-//                 },
-//               ),
+//                       ),
+//                     );
+//                   },
+//                 );
+//                 // return ListView.builder(
+//                 //   itemCount: items.length,
+//                 //   itemBuilder: (context, index) {
+//                 //
+//                 //     final item = items[index];
+//                 //     final dat = jsonDecode(item["data"]);
+//                 //
+//                 //     return Card(
+//                 //       elevation: 4,
+//                 //       margin: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+//                 //       child: Padding(
+//                 //         padding: const EdgeInsets.all(12),
+//                 //         child: Column(
+//                 //           crossAxisAlignment: CrossAxisAlignment.start,
+//                 //           children: [
+//                 //
+//                 //             Text("Account Name: ${dat['Accountname']}"),
+//                 //             Text("Category: ${dat['Accounttype']}"),
+//                 //             Text("Opening Balance: ${dat['OpeningBalance']}"),
+//                 //             Text("Type: ${dat['Type']}"),
+//                 //             Text("Year: $currentYear"),
+//                 //
+//                 //             Align(
+//                 //               alignment: Alignment.centerRight,
+//                 //               child: TextButton(
+//                 //                 onPressed: () async {
+//                 //
+//                 //                   final res = await Navigator.push(
+//                 //                     context,
+//                 //                     MaterialPageRoute(
+//                 //                       builder: (context) => Editaccount1(
+//                 //                         keyid: item['keyid'].toString(),
+//                 //                         year: dat['year'] ?? "",
+//                 //                         accname: dat['Accountname'],
+//                 //                         cat: dat['Accounttype'],
+//                 //                         obalance: dat['OpeningBalance'],
+//                 //                         actype: dat['Type'],
+//                 //                       ),
+//                 //                     ),
+//                 //                   );
+//                 //
+//                 //                   if (res == true) {
+//                 //                     setState(() {
+//                 //                       _loadData();
+//                 //                     });
+//                 //                   }
+//                 //                 },
+//                 //                 child: Text(
+//                 //                   "Edit",
+//                 //                   style: TextStyle(color: Colors.green),
+//                 //                 ),
+//                 //               ),
+//                 //             )
+//                 //           ],
+//                 //         ),
+//                 //       ),
+//                 //     );
+//                 //   },
+//                 // );
+//               },
 //             ),
-//           ],
-//         ),
+//           ),
+//         ],
 //       ),
-// ),
-//       ],),
-//       bottomNavigationBar: Container(
-//         width: MediaQuery.of(context).size.width,
-//         padding: const EdgeInsets.only(left: 40.0),
-//         child: Row(
-//           crossAxisAlignment: CrossAxisAlignment.end,
 //
-//           children: [
-//             Spacer(),
-//             Spacer(),
-//             Spacer(),
-//             Spacer(),
-//             Spacer(),
-//             Container(
-//               height: 65,
+//       // ➕ FLOAT BUTTON
+//       floatingActionButton: FloatingActionButton(
+//         backgroundColor: Colors.red,
+//         onPressed: () async {
 //
-//               child: FloatingActionButton(
-//                 backgroundColor: Colors.red,
-//                 tooltip: 'Increment',
-//                 shape: const CircleBorder(),
-//                 onPressed: () async {
-//                  final result =
-//                  await Navigator.push(
-//                     context,
-//                     MaterialPageRoute(builder: (context) => Addaccountsdet()),
-//                   );
-//                  if (result == true) {
-//                    setState(() {
-//                      _loadData();
-//                    });
-//                  }
-//                 },
-//                 child: const Icon(Icons.add, color: Colors.white, size: 25),
-//               ),
-//             ),
-//             //  Text('Home'),
-//             Spacer(),
-//           ],
-//         ),
+//           final result = await Navigator.push(
+//             context,
+//             MaterialPageRoute(builder: (context) => Addaccountsdet()),
+//           );
+//
+//           if (result == true) {
+//             setState(() {
+//               _loadData();
+//             });
+//           }
+//         },
+//         child: Icon(Icons.add),
 //       ),
 //     );
-//
-//     //  return   Placeholder();
 //   }
 // }
+//
