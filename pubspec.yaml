@@ -74,6 +74,9 @@ dependencies:
   flutter_background_service:
   flutter_timezone:
   android_alarm_manager_plus: ^5.0.0
+  table_calendar: ^3.2.0
+  custom_date_picker: ^0.0.7
+
 
 dev_dependencies:
   flutter_test:

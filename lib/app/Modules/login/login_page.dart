@@ -9,7 +9,7 @@ import 'package:new_project_2025/services/API_services/API_services.dart';
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
 import 'package:new_project_2025/view/home/widget/Resgistration_page/Resgistration_page.dart';
 
-import '../../../nativestorage.dart';
+
 import '../../../view_model/Resgistration_page/Resgistration_page.dart';
 
 void main() {
@@ -100,21 +100,21 @@ class _LoginScreenState extends State<LoginScreen> {
         print("Token from loginscreen is $token");
         String userId = data['userid'] ?? "";
 
-        // final prefs = await SharedPreferences.getInstance();
-        // await prefs.setInt('status', status);
-        // await prefs.setString('token', token);
-        // await prefs.setString('userid', userId);
-        await NativeStorage.saveLogin(
-          status: status,
-          token: token,
-          userId: userId,
-        );
-        // 👉 Now read it
-        final data1 = await NativeStorage.getLogin();
-
-        String? savedToken = data1?['token'];
-
-        print("Saved Token = $savedToken");
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('status', status);
+        await prefs.setString('token', token);
+        await prefs.setString('userid', userId);
+        // await NativeStorage.saveLogin(
+        //   status: status,
+        //   token: token,
+        //   userId: userId,
+        // );
+        // // 👉 Now read it
+        // final data1 = await NativeStorage.getLogin();
+        //
+        // String? savedToken = data1?['token'];
+        //
+        // print("Saved Token = $savedToken");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(message.isEmpty ? "Login Success" : message)),
         );

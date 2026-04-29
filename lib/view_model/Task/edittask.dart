@@ -14,6 +14,8 @@ import 'package:quickalert/widgets/quickalert_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
+import '../AccountSet_up/editaccountdetails.dart';
+
 class EditTasks extends StatefulWidget {
   final TaskModel task1;
 

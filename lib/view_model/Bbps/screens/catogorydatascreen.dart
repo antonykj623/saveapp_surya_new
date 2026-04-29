@@ -479,10 +479,10 @@ class _DynamicCustomFormPageState
       loading = true;
       showBillCard = false;
     });
-    // Get token from SharedPreferences
-    // SharedPreferences prefs = await SharedPreferences.getInstance();
-    // String? token = prefs.getString('token');
-   // print("Token: $token");
+    //Get token from SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('token');
+   print("Token: $token");
 
     // Construct URL with billId as query parameter
     final url = Uri.parse(
@@ -498,7 +498,7 @@ class _DynamicCustomFormPageState
           "tenantId": "FE41",
           "agentId": "FE41FE16MOBU00000001",
           "x-digiledge-key": "b8rFeserZ7GnUEPW2Z5eLkauqqGhJq",
-          // if (token != null) "Authorization": "Bearer $token",
+          if (token != null) "Authorization": "Bearer $token",
         },
       );
 

@@ -65,19 +65,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     print("Token is $_token");
 
     timestamp = DateFormat('yyyy-MM-dd HH:mm:ss').format(DateTime.now());
-    // String base64Image = "";
-    // if (_profileImage != null) {
-    //   List<int> imageBytes = await _profileImage!.readAsBytes();
-    //   base64Image = base64Encode(imageBytes);
-    // }
+    String base64Image = "";
+    if (_profileImage != null) {
+      List<int> imageBytes = await _profileImage!.readAsBytes();
+      base64Image = base64Encode(imageBytes);
+    }
 
     ApiHelper api = ApiHelper();
 
-
+    Map<String, String> logdata = {
+      "mobile": _phoneNumber,
+      "fullName": _nameController.text.trim(),
+      "emailId": _emailController.text.trim(),
+      "profileImage": base64Image,
+      "defaultLang": _selectedLanguage,
+      "timestamp": timestamp!,
+      "token": _token!,
+    };
     try {
       String logresponse = await api.postApiResponse(
-        "getUserDetails.php",
-        {},
+        "getUserDetails.php",logdata,
+
       );
       debugPrint("Response1: $logresponse");
       var res = json.decode(logresponse);
