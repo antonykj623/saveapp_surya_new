@@ -50,31 +50,29 @@ class _AccountsetupState extends State<Accountsetup> {
         children: [
 
           // 🔵 HEADER (SAME DESIGN)
-          SafeArea(
-            child:
-            Container(
+
+
+          Padding(
+            padding: const EdgeInsets.all(0.0),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.blue, Colors.teal],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                  colors: [Colors.teal, Colors.blue],
                 ),
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(25),
+                  bottomRight: Radius.circular(25),
                 ),
               ),
-              padding: EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 20),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: Icon(Icons.arrow_back, color: Colors.black),
-                    ),
+                  IconButton(
+                    icon: Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
                   ),
-                  SizedBox(width: 15),
+                  SizedBox(width: 5),
                   Text(
                     "Account Setup",
                     style: TextStyle(
@@ -86,27 +84,6 @@ class _AccountsetupState extends State<Accountsetup> {
                 ],
               ),
             ),
-            // Container(
-            //   padding: EdgeInsets.symmetric(horizontal: 12, vertical: 15),
-            //   color: Colors.blueGrey,
-            //   child: Row(
-            //     children: [
-            //       IconButton(
-            //         onPressed: () => Navigator.pop(context),
-            //         icon: Icon(Icons.arrow_back, color: Colors.white),
-            //       ),
-            //       SizedBox(width: 10),
-            //       Text(
-            //         "Account Setup",
-            //         style: TextStyle(
-            //           color: Colors.white,
-            //           fontSize: 22,
-            //           fontWeight: FontWeight.bold,
-            //         ),
-            //       ),
-            //     ],
-            //   ),
-            // ),
           ),
 
           // 🔍 SEARCH BOX
