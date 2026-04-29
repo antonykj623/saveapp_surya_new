@@ -18,7 +18,7 @@ class _AccountsetupState extends State<Accountsetup> {
 
   TextEditingController _searchController = TextEditingController();
 
-  String name = "";
+  String names = "";
 
   @override
   void initState() {
@@ -33,12 +33,12 @@ class _AccountsetupState extends State<Accountsetup> {
 
   // 🔍 SEARCH FILTER
   List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> data) {
-    if (name.isEmpty) return data.reversed.toList();
+    if (names.isEmpty) return data.reversed.toList();
 
     return data.reversed.where((e) {
       final dat = jsonDecode(e["data"]);
       final acc = dat['Accountname'].toString().toLowerCase();
-      return acc.contains(name.toLowerCase());
+      return acc.contains(names.toLowerCase());
     }).toList();
   }
 
@@ -116,7 +116,7 @@ class _AccountsetupState extends State<Accountsetup> {
               controller: _searchController,
               onChanged: (v) {
                 setState(() {
-                  name = v;
+                  names = v;
                 });
               },
               decoration: InputDecoration(

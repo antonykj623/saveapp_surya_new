@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
 
 class Addaccountsdet extends StatefulWidget {
-  final String? tit;
-  const Addaccountsdet({super.key, this.tit});
+  final String? titl;
+  const Addaccountsdet({super.key, this.titl});
 
   @override
   State<Addaccountsdet> createState() => _AddaccountsdetState();
@@ -38,8 +38,8 @@ class _AddaccountsdetState extends State<Addaccountsdet> {
   @override
   void initState() {
     super.initState();
-    if (widget.tit != null && items1.contains(widget.tit)) {
-      dropdownvalu1 = widget.tit!;
+    if (widget.titl != null && items1.contains(widget.titl)) {
+      dropdownvalu1 = widget.titl!;
     }
   }
 
