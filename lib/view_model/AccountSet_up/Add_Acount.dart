@@ -105,10 +105,10 @@ class _AddaccountsdetState extends State<Addaccountsdet> {
           // 🔵 MODERN HEADER
 
           Padding(
-            padding: const EdgeInsets.all(0.0),
+            padding: const EdgeInsets.only(top: 0),
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.only(top: 50, left: 16, right: 16, bottom: 20),
+              padding: EdgeInsets.only(top: 20, left: 16, right: 16, bottom: 20),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [Colors.teal, Colors.blue],

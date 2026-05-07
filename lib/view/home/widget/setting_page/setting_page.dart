@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:new_project_2025/view/home/widget/More_page/setpattern.dart';
+import 'package:new_project_2025/view/home/widget/home_screen.dart';
 import 'package:new_project_2025/view/home/widget/profile_page/profile_page.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -407,7 +408,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () {
-            Navigator.pop(context);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SaveApp(),
+              ),
+            );
+         //   Navigator.pop(context);
           },
         ),
         backgroundColor: const Color(0xFF00897B),

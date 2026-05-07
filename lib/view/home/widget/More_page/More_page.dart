@@ -97,7 +97,8 @@ class _MoreState extends State<More> {
     //   screen = const AboutUsScreen();
     //   break;
     case "Privacy Policy":
-      screen =   LockPatternPage();
+     // screen =   LockPatternPage();
+    screen = LockPatternMain();
       break;
     // case "Terms and Conditions For Use":
     //   screen = const TermsScreen();

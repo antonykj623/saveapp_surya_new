@@ -3,15 +3,15 @@ package com.example.new_project_2025
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Bundle
 import android.util.Log
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
+import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStream
 
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
     private val CHANNEL = "save_drive/channel"
 
@@ -22,275 +22,775 @@ class MainActivity : FlutterActivity() {
     private var pendingPickResult: MethodChannel.Result? = null
 
     // ================================
-    // ✅ SharedPreferences Keys
+    // SharedPreferences Keys
     // ================================
+
     private val PREF_BACKUP = "backup_prefs"
     private val KEY_LAST_URI = "last_backup_uri"
 
     private val PREF_LOGIN = "login_prefs"
 
     // ================================
-    // 🚀 MethodChannel Setup
+    // Flutter Method Channel
     // ================================
-    override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
+
+    override fun configureFlutterEngine(
+        flutterEngine: FlutterEngine
+    ) {
         super.configureFlutterEngine(flutterEngine)
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            CHANNEL
+        ).setMethodCallHandler { call, result ->
 
-                when (call.method) {
+            when (call.method) {
 
-                    // =====================================
-                    // 🔐 LOGIN STORAGE (ANDROID PREFS)
-                    // =====================================
-                    "saveLoginData" -> {
-                        val status = call.argument<Int>("status") ?: 0
-                        val token = call.argument<String>("token")
-                        val userId = call.argument<String>("userid")
+                // =====================================
+                // SAVE LOGIN DATA
+                // =====================================
 
-                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
-                        prefs.edit()
-                            .putInt("status", status)
-                            .putString("token", token)
-                            .putString("userid", userId)
-                            .apply()
+                "saveLoginData" -> {
 
-                        result.success(true)
-                    }
+                    val status =
+                        call.argument<Int>("status") ?: 0
 
-                    "getLoginData" -> {
-                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
+                    val token =
+                        call.argument<String>("token")
 
-                        val status = prefs.getInt("status", 0)
-                        val token = prefs.getString("token", null)
-                        val userId = prefs.getString("userid", null)
+                    val userId =
+                        call.argument<String>("userid")
 
-                        result.success(
-                            mapOf(
-                                "status" to status,
-                                "token" to token,
-                                "userid" to userId
-                            )
+                    val prefs =
+                        getSharedPreferences(
+                            PREF_LOGIN,
+                            MODE_PRIVATE
                         )
-                    }
 
-                    "clearLoginData" -> {
-                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
-                        prefs.edit().clear().apply()
-                        result.success(true)
-                    }
+                    prefs.edit()
+                        .putInt("status", status)
+                        .putString("token", token)
+                        .putString("userid", userId)
+                        .apply()
 
-                    // =====================================
-                    // 📁 CREATE FILE (SAF)
-                    // =====================================
-                    "createFile" -> {
-                        resultCallback = result
+                    result.success(true)
+                }
 
-                        val mime = call.argument<String>("mime") ?: "application/json"
-                        val fileName = call.argument<String>("fileName") ?: "backup.json"
+                // =====================================
+                // GET LOGIN DATA
+                // =====================================
 
-                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = mime
-                            putExtra(Intent.EXTRA_TITLE, fileName)
-                        }
+                "getLoginData" -> {
 
-                        startActivityForResult(intent, CREATE_FILE_REQ)
-                    }
-
-                    // =====================================
-                    // ✍️ WRITE FILE
-                    // =====================================
-                    "writeFile" -> {
-                        val uri = call.argument<String>("uri")
-                        val data = call.argument<String>("data") ?: ""
-
-                        if (uri == null) {
-                            result.error("NO_URI", "URI missing", null)
-                            return@setMethodCallHandler
-                        }
-
-                        try {
-                            val output: OutputStream? =
-                                contentResolver.openOutputStream(Uri.parse(uri))
-
-                            output?.use {
-                                it.write(data.toByteArray())
-                            }
-
-                            saveLastBackupUri(uri)
-
-                            Log.d("Backup", "Saved URI: $uri")
-
-                            result.success(true)
-
-                        } catch (e: Exception) {
-                            result.error("WRITE_ERROR", e.message, null)
-                        }
-                    }
-
-                    // =====================================
-                    // 📂 PICK JSON FILE
-                    // =====================================
-                    "pickFile" -> {
-                        pendingPickResult = result
-
-                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                            addCategory(Intent.CATEGORY_OPENABLE)
-                            type = "application/json"
-                        }
-
-                        startActivityForResult(intent, PICK_JSON_REQUEST)
-                    }
-
-                    // =====================================
-                    // 📖 READ FILE BY URI
-                    // =====================================
-                    "readFileByUri" -> {
-                        val uriString = call.argument<String>("uri")
-
-                        if (uriString == null) {
-                            result.error("NO_URI", "URI missing", null)
-                            return@setMethodCallHandler
-                        }
-
-                        val content = readFile(Uri.parse(uriString))
-
-                        result.success(
-                            mapOf(
-                                "uri" to uriString,
-                                "content" to content
-                            )
+                    val prefs =
+                        getSharedPreferences(
+                            PREF_LOGIN,
+                            MODE_PRIVATE
                         )
-                    }
 
-                    // =====================================
-                    // 🔄 AUTO RESTORE BACKUP
-                    // =====================================
-                    "getLastBackup" -> {
-                        val lastUriString = getLastBackupUri()
+                    val status =
+                        prefs.getInt("status", 0)
 
-                        if (lastUriString != null) {
-                            try {
-                                val uri = Uri.parse(lastUriString)
+                    val token =
+                        prefs.getString("token", null)
 
-                                contentResolver.takePersistableUriPermission(
-                                    uri,
-                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    val userId =
+                        prefs.getString("userid", null)
+
+                    result.success(
+                        mapOf(
+                            "status" to status,
+                            "token" to token,
+                            "userid" to userId
+                        )
+                    )
+                }
+
+                // =====================================
+                // CLEAR LOGIN DATA
+                // =====================================
+
+                "clearLoginData" -> {
+
+                    val prefs =
+                        getSharedPreferences(
+                            PREF_LOGIN,
+                            MODE_PRIVATE
+                        )
+
+                    prefs.edit().clear().apply()
+
+                    result.success(true)
+                }
+
+                // =====================================
+                // CREATE FILE
+                // =====================================
+
+                "createFile" -> {
+
+                    resultCallback = result
+
+                    val mime =
+                        call.argument<String>("mime")
+                            ?: "application/json"
+
+                    val fileName =
+                        call.argument<String>("fileName")
+                            ?: "backup.json"
+
+                    val intent =
+                        Intent(Intent.ACTION_CREATE_DOCUMENT)
+                            .apply {
+
+                                addCategory(
+                                    Intent.CATEGORY_OPENABLE
                                 )
 
-                                val content = readFile(uri)
+                                type = mime
 
-                                Log.d("Backup", "Restored URI: $lastUriString")
-
-                                result.success(content)
-
-                            } catch (e: SecurityException) {
-                                clearLastBackup()
-                                result.success(null)
-
-                            } catch (e: Exception) {
-                                result.success(null)
+                                putExtra(
+                                    Intent.EXTRA_TITLE,
+                                    fileName
+                                )
                             }
 
-                        } else {
-                            result.success(null)
-                        }
+                    startActivityForResult(
+                        intent,
+                        CREATE_FILE_REQ
+                    )
+                }
+
+                // =====================================
+                // WRITE FILE
+                // =====================================
+
+                "writeFile" -> {
+
+                    val uri =
+                        call.argument<String>("uri")
+
+                    val data =
+                        call.argument<String>("data") ?: ""
+
+                    if (uri == null) {
+
+                        result.error(
+                            "NO_URI",
+                            "URI missing",
+                            null
+                        )
+
+                        return@setMethodCallHandler
                     }
 
-                    else -> result.notImplemented()
+                    try {
+
+                        val output: OutputStream? =
+                            contentResolver.openOutputStream(
+                                Uri.parse(uri)
+                            )
+
+                        output?.use {
+                            it.write(data.toByteArray())
+                        }
+
+                        saveLastBackupUri(uri)
+
+                        Log.d(
+                            "Backup",
+                            "Saved URI: $uri"
+                        )
+
+                        result.success(true)
+
+                    } catch (e: Exception) {
+
+                        result.error(
+                            "WRITE_ERROR",
+                            e.message,
+                            null
+                        )
+                    }
                 }
+
+                // =====================================
+                // PICK JSON FILE
+                // =====================================
+
+                "pickFile" -> {
+
+                    pendingPickResult = result
+
+                    val intent =
+                        Intent(Intent.ACTION_OPEN_DOCUMENT)
+                            .apply {
+
+                                addCategory(
+                                    Intent.CATEGORY_OPENABLE
+                                )
+
+                                type = "application/json"
+                            }
+
+                    startActivityForResult(
+                        intent,
+                        PICK_JSON_REQUEST
+                    )
+                }
+
+                // =====================================
+                // READ FILE BY URI
+                // =====================================
+
+                "readFileByUri" -> {
+
+                    val uriString =
+                        call.argument<String>("uri")
+
+                    if (uriString == null) {
+
+                        result.error(
+                            "NO_URI",
+                            "URI missing",
+                            null
+                        )
+
+                        return@setMethodCallHandler
+                    }
+
+                    val content =
+                        readFile(
+                            Uri.parse(uriString)
+                        )
+
+                    result.success(
+                        mapOf(
+                            "uri" to uriString,
+                            "content" to content
+                        )
+                    )
+                }
+
+                // =====================================
+                // AUTO RESTORE BACKUP
+                // =====================================
+
+                "getLastBackup" -> {
+
+                    val lastUriString =
+                        getLastBackupUri()
+
+                    if (lastUriString != null) {
+
+                        try {
+
+                            val uri =
+                                Uri.parse(lastUriString)
+
+                            contentResolver.takePersistableUriPermission(
+                                uri,
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                            )
+
+                            val content =
+                                readFile(uri)
+
+                            Log.d(
+                                "Backup",
+                                "Restored URI: $lastUriString"
+                            )
+
+                            result.success(content)
+
+                        } catch (e: SecurityException) {
+
+                            clearLastBackup()
+
+                            result.success(null)
+
+                        } catch (e: Exception) {
+
+                            result.success(null)
+                        }
+
+                    } else {
+
+                        result.success(null)
+                    }
+                }
+
+                else -> result.notImplemented()
             }
+        }
     }
 
     // =====================================
-    // 📌 SharedPreferences (Backup)
+    // SAVE LAST BACKUP URI
     // =====================================
-    private fun saveLastBackupUri(uri: String) {
-        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
-        prefs.edit().putString(KEY_LAST_URI, uri).apply()
+
+    private fun saveLastBackupUri(
+        uri: String
+    ) {
+
+        val prefs =
+            getSharedPreferences(
+                PREF_BACKUP,
+                MODE_PRIVATE
+            )
+
+        prefs.edit()
+            .putString(KEY_LAST_URI, uri)
+            .apply()
     }
+
+    // =====================================
+    // GET LAST BACKUP URI
+    // =====================================
 
     private fun getLastBackupUri(): String? {
-        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
-        return prefs.getString(KEY_LAST_URI, null)
+
+        val prefs =
+            getSharedPreferences(
+                PREF_BACKUP,
+                MODE_PRIVATE
+            )
+
+        return prefs.getString(
+            KEY_LAST_URI,
+            null
+        )
     }
+
+    // =====================================
+    // CLEAR LAST BACKUP
+    // =====================================
 
     private fun clearLastBackup() {
-        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
-        prefs.edit().remove(KEY_LAST_URI).apply()
+
+        val prefs =
+            getSharedPreferences(
+                PREF_BACKUP,
+                MODE_PRIVATE
+            )
+
+        prefs.edit()
+            .remove(KEY_LAST_URI)
+            .apply()
     }
 
     // =====================================
-    // 📖 READ FILE HELPER
+    // READ FILE HELPER
     // =====================================
+
     private fun readFile(uri: Uri): String {
-        val inputStream = contentResolver.openInputStream(uri)
-        val reader = BufferedReader(InputStreamReader(inputStream))
+
+        val inputStream =
+            contentResolver.openInputStream(uri)
+
+        val reader =
+            BufferedReader(
+                InputStreamReader(inputStream)
+            )
+
         val builder = StringBuilder()
 
         var line: String? = reader.readLine()
+
         while (line != null) {
-            builder.append(line).append("\n")
+
+            builder.append(line)
+                .append("\n")
+
             line = reader.readLine()
         }
 
         reader.close()
+
         return builder.toString().trim()
     }
 
     // =====================================
-    // 📌 ACTIVITY RESULT
+    // ACTIVITY RESULT
     // =====================================
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
 
-        // CREATE FILE
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
+
+        // CREATE FILE RESULT
+
         if (requestCode == CREATE_FILE_REQ) {
-            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+
+            if (
+                resultCode == Activity.RESULT_OK &&
+                data?.data != null
+            ) {
 
                 val uri = data.data!!
 
                 contentResolver.takePersistableUriPermission(
                     uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
 
-                saveLastBackupUri(uri.toString())
+                saveLastBackupUri(
+                    uri.toString()
+                )
 
-                resultCallback?.success(uri.toString())
+                resultCallback?.success(
+                    uri.toString()
+                )
 
             } else {
+
                 resultCallback?.success(null)
             }
 
             resultCallback = null
+
             return
         }
 
-        // PICK JSON FILE
+        // PICK FILE RESULT
+
         if (requestCode == PICK_JSON_REQUEST) {
-            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+
+            if (
+                resultCode == Activity.RESULT_OK &&
+                data?.data != null
+            ) {
 
                 val uri = data.data!!
 
                 contentResolver.takePersistableUriPermission(
                     uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
 
                 val json = readFile(uri)
+
                 pendingPickResult?.success(json)
 
             } else {
+
                 pendingPickResult?.success(null)
             }
 
             pendingPickResult = null
+
             return
         }
     }
 }
+//package com.example.new_project_2025
+//
+//import android.app.Activity
+//import android.content.Intent
+//import android.net.Uri
+//import android.os.Bundle
+//import android.util.Log
+//import io.flutter.embedding.android.FlutterActivity
+//import io.flutter.plugin.common.MethodChannel
+//import java.io.BufferedReader
+//import java.io.InputStreamReader
+//import java.io.OutputStream
+//
+////import io.flutter.embedding.android.FlutterFragmentActivity;
+////
+////public class MainActivity extends FlutterFragmentActivity {
+////}
+//class MainActivity : FlutterActivity() {
+//
+//    private val CHANNEL = "save_drive/channel"
+//
+//    private val CREATE_FILE_REQ = 5001
+//    private val PICK_JSON_REQUEST = 2001
+//
+//    private var resultCallback: MethodChannel.Result? = null
+//    private var pendingPickResult: MethodChannel.Result? = null
+//
+//    // ================================
+//    // ✅ SharedPreferences Keys
+//    // ================================
+//    private val PREF_BACKUP = "backup_prefs"
+//    private val KEY_LAST_URI = "last_backup_uri"
+//
+//    private val PREF_LOGIN = "login_prefs"
+//
+//    // ================================
+//    // 🚀 MethodChannel Setup
+//    // ================================
+//    override fun configureFlutterEngine(flutterEngine: io.flutter.embedding.engine.FlutterEngine) {
+//        super.configureFlutterEngine(flutterEngine)
+//
+//        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+//            .setMethodCallHandler { call, result ->
+//
+//                when (call.method) {
+//
+//                    // =====================================
+//                    // 🔐 LOGIN STORAGE (ANDROID PREFS)
+//                    // =====================================
+//                    "saveLoginData" -> {
+//                        val status = call.argument<Int>("status") ?: 0
+//                        val token = call.argument<String>("token")
+//                        val userId = call.argument<String>("userid")
+//
+//                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
+//                        prefs.edit()
+//                            .putInt("status", status)
+//                            .putString("token", token)
+//                            .putString("userid", userId)
+//                            .apply()
+//
+//                        result.success(true)
+//                    }
+//
+//                    "getLoginData" -> {
+//                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
+//
+//                        val status = prefs.getInt("status", 0)
+//                        val token = prefs.getString("token", null)
+//                        val userId = prefs.getString("userid", null)
+//
+//                        result.success(
+//                            mapOf(
+//                                "status" to status,
+//                                "token" to token,
+//                                "userid" to userId
+//                            )
+//                        )
+//                    }
+//
+//                    "clearLoginData" -> {
+//                        val prefs = getSharedPreferences(PREF_LOGIN, MODE_PRIVATE)
+//                        prefs.edit().clear().apply()
+//                        result.success(true)
+//                    }
+//
+//                    // =====================================
+//                    // 📁 CREATE FILE (SAF)
+//                    // =====================================
+//                    "createFile" -> {
+//                        resultCallback = result
+//
+//                        val mime = call.argument<String>("mime") ?: "application/json"
+//                        val fileName = call.argument<String>("fileName") ?: "backup.json"
+//
+//                        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+//                            addCategory(Intent.CATEGORY_OPENABLE)
+//                            type = mime
+//                            putExtra(Intent.EXTRA_TITLE, fileName)
+//                        }
+//
+//                        startActivityForResult(intent, CREATE_FILE_REQ)
+//                    }
+//
+//                    // =====================================
+//                    // ✍️ WRITE FILE
+//                    // =====================================
+//                    "writeFile" -> {
+//                        val uri = call.argument<String>("uri")
+//                        val data = call.argument<String>("data") ?: ""
+//
+//                        if (uri == null) {
+//                            result.error("NO_URI", "URI missing", null)
+//                            return@setMethodCallHandler
+//                        }
+//
+//                        try {
+//                            val output: OutputStream? =
+//                                contentResolver.openOutputStream(Uri.parse(uri))
+//
+//                            output?.use {
+//                                it.write(data.toByteArray())
+//                            }
+//
+//                            saveLastBackupUri(uri)
+//
+//                            Log.d("Backup", "Saved URI: $uri")
+//
+//                            result.success(true)
+//
+//                        } catch (e: Exception) {
+//                            result.error("WRITE_ERROR", e.message, null)
+//                        }
+//                    }
+//
+//                    // =====================================
+//                    // 📂 PICK JSON FILE
+//                    // =====================================
+//                    "pickFile" -> {
+//                        pendingPickResult = result
+//
+//                        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+//                            addCategory(Intent.CATEGORY_OPENABLE)
+//                            type = "application/json"
+//                        }
+//
+//                        startActivityForResult(intent, PICK_JSON_REQUEST)
+//                    }
+//
+//                    // =====================================
+//                    // 📖 READ FILE BY URI
+//                    // =====================================
+//                    "readFileByUri" -> {
+//                        val uriString = call.argument<String>("uri")
+//
+//                        if (uriString == null) {
+//                            result.error("NO_URI", "URI missing", null)
+//                            return@setMethodCallHandler
+//                        }
+//
+//                        val content = readFile(Uri.parse(uriString))
+//
+//                        result.success(
+//                            mapOf(
+//                                "uri" to uriString,
+//                                "content" to content
+//                            )
+//                        )
+//                    }
+//
+//                    // =====================================
+//                    // 🔄 AUTO RESTORE BACKUP
+//                    // =====================================
+//                    "getLastBackup" -> {
+//                        val lastUriString = getLastBackupUri()
+//
+//                        if (lastUriString != null) {
+//                            try {
+//                                val uri = Uri.parse(lastUriString)
+//
+//                                contentResolver.takePersistableUriPermission(
+//                                    uri,
+//                                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+//                                )
+//
+//                                val content = readFile(uri)
+//
+//                                Log.d("Backup", "Restored URI: $lastUriString")
+//
+//                                result.success(content)
+//
+//                            } catch (e: SecurityException) {
+//                                clearLastBackup()
+//                                result.success(null)
+//
+//                            } catch (e: Exception) {
+//                                result.success(null)
+//                            }
+//
+//                        } else {
+//                            result.success(null)
+//                        }
+//                    }
+//
+//                    else -> result.notImplemented()
+//                }
+//            }
+//    }
+//
+//    // =====================================
+//    // 📌 SharedPreferences (Backup)
+//    // =====================================
+//    private fun saveLastBackupUri(uri: String) {
+//        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
+//        prefs.edit().putString(KEY_LAST_URI, uri).apply()
+//    }
+//
+//    private fun getLastBackupUri(): String? {
+//        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
+//        return prefs.getString(KEY_LAST_URI, null)
+//    }
+//
+//    private fun clearLastBackup() {
+//        val prefs = getSharedPreferences(PREF_BACKUP, MODE_PRIVATE)
+//        prefs.edit().remove(KEY_LAST_URI).apply()
+//    }
+//
+//    // =====================================
+//    // 📖 READ FILE HELPER
+//    // =====================================
+//    private fun readFile(uri: Uri): String {
+//        val inputStream = contentResolver.openInputStream(uri)
+//        val reader = BufferedReader(InputStreamReader(inputStream))
+//        val builder = StringBuilder()
+//
+//        var line: String? = reader.readLine()
+//        while (line != null) {
+//            builder.append(line).append("\n")
+//            line = reader.readLine()
+//        }
+//
+//        reader.close()
+//        return builder.toString().trim()
+//    }
+//
+//    // =====================================
+//    // 📌 ACTIVITY RESULT
+//    // =====================================
+//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+//        super.onActivityResult(requestCode, resultCode, data)
+//
+//        // CREATE FILE
+//        if (requestCode == CREATE_FILE_REQ) {
+//            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+//
+//                val uri = data.data!!
+//
+//                contentResolver.takePersistableUriPermission(
+//                    uri,
+//                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+//                )
+//
+//                saveLastBackupUri(uri.toString())
+//
+//                resultCallback?.success(uri.toString())
+//
+//            } else {
+//                resultCallback?.success(null)
+//            }
+//
+//            resultCallback = null
+//            return
+//        }
+//
+//        // PICK JSON FILE
+//        if (requestCode == PICK_JSON_REQUEST) {
+//            if (resultCode == Activity.RESULT_OK && data?.data != null) {
+//
+//                val uri = data.data!!
+//
+//                contentResolver.takePersistableUriPermission(
+//                    uri,
+//                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+//                )
+//
+//                val json = readFile(uri)
+//                pendingPickResult?.success(json)
+//
+//            } else {
+//                pendingPickResult?.success(null)
+//            }
+//
+//            pendingPickResult = null
+//            return
+//        }
+//    }
+//}
 
 //old code
 ////package com.example.new_project_2025

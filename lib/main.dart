@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:new_project_2025/app/Modules/login/login_page.dart';
+import 'package:new_project_2025/view/home/widget/More_page/setpattern.dart';
 import 'package:new_project_2025/view/home/widget/home_screen.dart';
 import 'package:new_project_2025/view/home/widget/More_page/CheckPattern.dart';
 import 'package:new_project_2025/view_model/Task/notificationservice.dart';
@@ -107,7 +108,7 @@ class _SplashPageState extends State<SplashPage> {
     } else if (appLockEnabled == true) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => CheckPattern()),
+        MaterialPageRoute(builder: (context) => SetPattern()),
       );
     } else {
       Navigator.pushReplacement(

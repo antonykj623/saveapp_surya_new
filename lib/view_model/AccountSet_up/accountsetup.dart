@@ -1,4 +1,359 @@
-
+// import 'dart:convert';
+// import 'package:flutter/material.dart';
+// import 'package:speech_to_text/speech_to_text.dart' as stt;
+// import 'package:flutter_tts/flutter_tts.dart';
+//
+// import 'Add_Acount.dart';
+// import '../../view/home/widget/save_DB/Budegt_database_helper/Save_DB.dart';
+// import 'editaccountdetails.dart';
+//
+// class Accountsetup extends StatefulWidget {
+//   const Accountsetup({super.key});
+//
+//   @override
+//   State<Accountsetup> createState() => _AccountsetupState();
+// }
+//
+// class _AccountsetupState extends State<Accountsetup> {
+//
+//   late Future<List<Map<String, dynamic>>> _accountsFuture;
+//
+//   TextEditingController _searchController = TextEditingController();
+//   String names = "";
+//
+//   // 🎤 Speech
+//   late stt.SpeechToText _speech;
+//   bool _isListening = false;
+//   double _soundLevel = 0.0;
+//
+//   // 🔊 TTS
+//   final FlutterTts flutterTts = FlutterTts();
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _speech = stt.SpeechToText();
+//     _initTTS();
+//     _loadData();
+//   }
+//
+//   void _initTTS() async {
+//     await flutterTts.setLanguage("en-IN");
+//     await flutterTts.setPitch(1.0);
+//   }
+//
+//   void _loadData() {
+//     _accountsFuture =
+//         DatabaseHelper().getAllData1('TABLE_ACCOUNTSETTINGS');
+//   }
+//
+//   Future<void> _speak(String text) async {
+//     await flutterTts.stop();
+//     await flutterTts.speak(text);
+//   }
+//
+//   // 🎤 START LISTEN
+//   void _startListening() async {
+//     bool available = await _speech.initialize();
+//
+//     if (available) {
+//       setState(() {
+//         names = "";
+//         _searchController.clear();
+//         _isListening = true;
+//       });
+//
+//       _speech.listen(
+//         listenFor: Duration(seconds: 15),
+//         pauseFor: Duration(seconds: 3),
+//
+//         onResult: (result) {
+//           final voiceText =
+//           result.recognizedWords.toLowerCase().trim();
+//
+//           setState(() {
+//             names = voiceText;
+//             _searchController.text = voiceText;
+//           });
+//
+//           // 🎯 COMMAND HANDLING
+//           if (result.finalResult && voiceText.isNotEmpty) {
+//             if (voiceText.contains("delete")) {
+//               _handleDeleteCommand(voiceText);
+//             } else if (voiceText.contains("edit")) {
+//               _handleEditCommand(voiceText);
+//             } else {
+//               _speak("Searching for $voiceText");
+//             }
+//           }
+//         },
+//
+//         onSoundLevelChange: (level) {
+//           setState(() => _soundLevel = level);
+//         },
+//       );
+//     }
+//   }
+//
+//   void _stopListening() {
+//     _speech.stop();
+//     setState(() => _isListening = false);
+//   }
+//
+//   // 🔴 DELETE COMMAND
+//   void _handleDeleteCommand(String voiceText) async {
+//     final data = await _accountsFuture;
+//
+//     for (var item in data) {
+//       final dat = jsonDecode(item["data"]);
+//       final name = dat['Accountname'].toLowerCase();
+//
+//       if (voiceText.contains(name)) {
+//         await DatabaseHelper().deleteData(
+//           "TABLE_ACCOUNTSETTINGS",
+//           item['keyid'].toString(),
+//         );
+//
+//         _speak("$name deleted");
+//         setState(() => _loadData());
+//         return;
+//       }
+//     }
+//
+//     _speak("Account not found");
+//   }
+//
+//   // 🟢 EDIT COMMAND
+//   void _handleEditCommand(String voiceText) async {
+//     final data = await _accountsFuture;
+//
+//     for (var item in data) {
+//       final dat = jsonDecode(item["data"]);
+//       final name = dat['Accountname'].toLowerCase();
+//
+//       if (voiceText.contains(name)) {
+//         _speak("Opening edit for $name");
+//
+//         Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (context) => Editaccount1(
+//               keyid: item['keyid'].toString(),
+//               year: dat['year'] ?? "",
+//               accname: dat['Accountname'],
+//               cat: dat['Accounttype'],
+//               obalance: dat['OpeningBalance'],
+//               actype: dat['Type'],
+//             ),
+//           ),
+//         );
+//         return;
+//       }
+//     }
+//
+//     _speak("Account not found");
+//   }
+//
+//   // 🔍 FILTER
+//   List<Map<String, dynamic>> _filter(List<Map<String, dynamic>> data) {
+//     if (names.trim().isEmpty) return data.reversed.toList();
+//
+//     final query = names.toLowerCase();
+//
+//     return data.reversed.where((e) {
+//       final dat = jsonDecode(e["data"]);
+//       final acc = dat['Accountname'].toLowerCase();
+//
+//       return acc.contains(query) ||
+//           query.split(" ").any((word) => acc.contains(word));
+//     }).toList();
+//   }
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       body: Column(
+//         children: [
+//
+//           // 🔵 HEADER
+//           Container(
+//             width: double.infinity,
+//             padding: EdgeInsets.only(top: 50, left: 16, bottom: 20),
+//             decoration: BoxDecoration(
+//               gradient: LinearGradient(
+//                 colors: [Colors.teal, Colors.blue],
+//               ),
+//               borderRadius: BorderRadius.only(
+//                 bottomLeft: Radius.circular(25),
+//                 bottomRight: Radius.circular(25),
+//               ),
+//             ),
+//             child: Row(
+//               children: [
+//                 IconButton(
+//                   icon: Icon(Icons.arrow_back, color: Colors.white),
+//                   onPressed: () => Navigator.pop(context),
+//                 ),
+//                 Text(
+//                   "Account Setup",
+//                   style: TextStyle(
+//                       color: Colors.white,
+//                       fontSize: 22,
+//                       fontWeight: FontWeight.bold),
+//                 ),
+//               ],
+//             ),
+//           ),
+//
+//           // 🔍 SEARCH
+//           Padding(
+//             padding: const EdgeInsets.all(10),
+//             child: TextField(
+//               controller: _searchController,
+//               onChanged: (v) {
+//                 setState(() => names = v.toLowerCase());
+//               },
+//               decoration: InputDecoration(
+//                 prefixIcon: Icon(Icons.search),
+//
+//                 suffixIcon: IconButton(
+//                   icon: Icon(
+//                     _isListening ? Icons.mic : Icons.mic_none,
+//                     color: _isListening ? Colors.red : Colors.grey,
+//                   ),
+//                   onPressed: () {
+//                     _isListening ? _stopListening() : _startListening();
+//                   },
+//                 ),
+//
+//                 hintText: _isListening
+//                     ? "Listening..."
+//                     : "Search / say 'delete cash'",
+//                 border: OutlineInputBorder(
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//               ),
+//             ),
+//           ),
+//
+//           // 🎤 WAVE
+//           AnimatedContainer(
+//             duration: Duration(milliseconds: 100),
+//             height: 10 + (_soundLevel * 2),
+//             width: _isListening ? 60 + (_soundLevel * 5) : 20,
+//             decoration: BoxDecoration(
+//               color: _isListening ? Colors.red : Colors.grey,
+//               borderRadius: BorderRadius.circular(20),
+//             ),
+//           ),
+//
+//           // 📋 LIST
+//           Expanded(
+//             child: FutureBuilder<List<Map<String, dynamic>>>(
+//               future: _accountsFuture,
+//               builder: (context, snapshot) {
+//
+//                 if (!snapshot.hasData) {
+//                   return Center(child: CircularProgressIndicator());
+//                 }
+//
+//                 final items = _filter(snapshot.data!);
+//
+//                 return ListView.builder(
+//                   itemCount: items.length,
+//                   itemBuilder: (context, index) {
+//
+//                     final item = items[index];
+//                     final dat = jsonDecode(item["data"]);
+//                     final keyid = item['keyid'];
+//
+//                     return Card(
+//                       margin: EdgeInsets.all(8),
+//                       child: ListTile(
+//                         title: Text(dat['Accountname']),
+//
+//                         subtitle: Column(
+//                           crossAxisAlignment: CrossAxisAlignment.start,
+//                           children: [
+//                             Text("Category: ${dat['Accounttype']}"),
+//                             Text("Balance: ₹${dat['OpeningBalance']}"),
+//                             Text("Type: ${dat['Type']}"),
+//                           ],
+//                         ),
+//
+//                         onTap: () {
+//                           _speak(
+//                               "${dat['Accountname']} balance ${dat['OpeningBalance']}");
+//                         },
+//
+//                         trailing: Row(
+//                           mainAxisSize: MainAxisSize.min,
+//                           children: [
+//
+//                             IconButton(
+//                               icon: Icon(Icons.edit, color: Colors.green),
+//                               onPressed: () async {
+//                                 final res = await Navigator.push(
+//                                   context,
+//                                   MaterialPageRoute(
+//                                     builder: (context) => Editaccount1(
+//                                       keyid: keyid.toString(),
+//                                       year: dat['year'] ?? "",
+//                                       accname: dat['Accountname'],
+//                                       cat: dat['Accounttype'],
+//                                       obalance: dat['OpeningBalance'],
+//                                       actype: dat['Type'],
+//                                     ),
+//                                   ),
+//                                 );
+//
+//                                 if (res == true) {
+//                                   setState(() => _loadData());
+//                                 }
+//                               },
+//                             ),
+//
+//                             IconButton(
+//                               icon: Icon(Icons.delete, color: Colors.red),
+//                               onPressed: () async {
+//                                 await DatabaseHelper().deleteData(
+//                                   "TABLE_ACCOUNTSETTINGS",
+//                                   keyid.toString(),
+//                                 );
+//
+//                                 _speak("${dat['Accountname']} deleted");
+//
+//                                 setState(() => _loadData());
+//                               },
+//                             ),
+//                           ],
+//                         ),
+//                       ),
+//                     );
+//                   },
+//                 );
+//               },
+//             ),
+//           ),
+//         ],
+//       ),
+//
+//       floatingActionButton: FloatingActionButton(
+//         onPressed: () async {
+//           final result = await Navigator.push(
+//             context,
+//             MaterialPageRoute(builder: (context) => Addaccountsdet()),
+//           );
+//
+//           if (result == true) {
+//             setState(() => _loadData());
+//           }
+//         },
+//         child: Icon(Icons.add),
+//       ),
+//     );
+//   }
+// }
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -123,7 +478,7 @@ class _AccountsetupState extends State<Accountsetup> {
           // 🔵 HEADER
           Container(
             width: double.infinity,
-            padding: EdgeInsets.only(top: 50, left: 16, bottom: 20),
+            padding: EdgeInsets.only(top: 20, left: 16, bottom: 20),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [Colors.teal, Colors.blue],
@@ -281,6 +636,7 @@ class _AccountsetupState extends State<Accountsetup> {
                                 );
 
                                 if (res == true) {
+                                  print("Response isssssss $res");
                                   setState(() => _loadData());
                                 }
                               },
@@ -324,6 +680,7 @@ class _AccountsetupState extends State<Accountsetup> {
         },
         icon: Icon(Icons.add),
         label: Text("Add"),
+        backgroundColor: Colors.blue, // 🔵 Change color here
       ),
     );
   }
